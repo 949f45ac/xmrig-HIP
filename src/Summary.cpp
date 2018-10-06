@@ -49,7 +49,7 @@ static void print_versions(xmrig::Config *config)
     snprintf(buf, 16, " MSVC/%d", MSVC_VERSION);
 #   endif
 
-    const int cudaVersion = 7; // cuda_get_runtime_version();
+    const int cudaVersion = 70; // cuda_get_runtime_version();
     Log::i()->text(config->isColors() ? GREEN_BOLD(" * ") WHITE_BOLD("%-13s") CYAN_BOLD("%s/%s") WHITE_BOLD(" libuv/%s CUDA/%d.%d%s")
                                       : " * %-13s%s/%s libuv/%s CUDA/%d.%d%s",
                    "VERSIONS", APP_NAME, APP_VERSION, uv_version_string(), cudaVersion / 1000, cudaVersion % 100, buf);

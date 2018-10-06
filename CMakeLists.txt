@@ -234,7 +234,8 @@ include_directories(${UV_INCLUDE_DIR})
 if (BUILD_STATIC)
     set(CMAKE_EXE_LINKER_FLAGS " -static")
 endif()
-
+  
+#SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} `sleep 1`")
 # add_library(xmrig-crypto
 #     STATIC
 #     ${SOURCES_CRYPTO} ${SOURCES_OS}

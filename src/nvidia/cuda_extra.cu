@@ -307,19 +307,18 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 extern "C" int cuda_get_devicecount()
 {
 	hipError_t err;
-	int* deviceCount;
-	*deviceCount = 0;
-	err = hipGetDeviceCount(deviceCount);
+	int deviceCount = 0;
+	err = hipGetDeviceCount(&deviceCount);
 	if(err != hipSuccess)
 	{
-		if(err != hipErrorNoDevice)
-			printf("No CUDA device found!\n");
+		if(err == hipErrorNoDevice)
+			printf("No CUDA devices?\n");
 		else
 			printf("Unable to query number of CUDA devices!\n");
 		return 0;
 	}
 
-	return *deviceCount;
+	return deviceCount;
 }
 
 #ifndef CUDART_VERSION
@@ -330,6 +329,8 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 {
 	hipError_t err;
 	int version;
+
+	printf("Start deviceinfo\n");
 
 	err = hipDriverGetVersion(&version);
 	if(err != hipSuccess)
@@ -415,6 +416,8 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 				ctx->device_threads /= 2;
 		}
 	}
+
+	printf("Passed deviceinfo\n");
 
 	return 1;
 }

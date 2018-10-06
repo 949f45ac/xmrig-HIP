@@ -66,7 +66,7 @@ static inline char *createUserAgent()
 #   endif
 
 #   ifdef XMRIG_NVIDIA_PROJECT
-    const int cudaVersion = 7; // cuda_get_runtime_version();
+    const int cudaVersion = 70; // cuda_get_runtime_version();
     length += snprintf(buf + length, max - length, " CUDA/%d.%d", cudaVersion / 1000, cudaVersion % 100);
 #   endif
 
