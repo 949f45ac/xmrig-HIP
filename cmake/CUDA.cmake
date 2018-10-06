@@ -3,11 +3,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 endif()
 
-option(XMR-STAK_LARGEGRID "Support large CUDA block count > 128" ON)
-if(XMR-STAK_LARGEGRID)
-    add_definitions("-DXMR_STAK_LARGEGRID=${XMR-STAK_LARGEGRID}")
-endif()
-
 set(DEVICE_COMPILER "nvcc")
 set(CUDA_COMPILER "${DEVICE_COMPILER}" CACHE STRING "Select the device compiler")
 

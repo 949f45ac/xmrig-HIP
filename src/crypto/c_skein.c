@@ -228,7 +228,7 @@ enum
 #define MK_64 SKEIN_MK_64
 
 /* blkSize =  512 bits. hashSize =  256 bits */
-const u64b_t SKEIN_512_IV_256[] =
+const u64b_t SKEIN_512_IV_256__[] =
     {
     MK_64(0xCCD044A1,0x2FDB3E13),
     MK_64(0xE8359030,0x1A79A9EB),
@@ -476,7 +476,7 @@ static int Skein_512_Init(Skein_512_Ctxt_t *ctx, size_t hashBitLen)
     switch (hashBitLen)
         {             /* use pre-computed values, where available */
 #ifndef SKEIN_NO_PRECOMP
-        case  256: memcpy(ctx->X,SKEIN_512_IV_256,sizeof(ctx->X));  break;
+        case  256: memcpy(ctx->X,SKEIN_512_IV_256__,sizeof(ctx->X));  break;
 #endif
         default:
             /* here if there is no precomputed IV value available */
@@ -677,7 +677,7 @@ void xmr_skein(const SkeinBitSequence *data, SkeinBitSequence *hashval){
 
   // Skein_512_Init(&state.u.ctx_512, (size_t)XMR_HASHBITLEN);
   state.u.ctx_512.h.hashBitLen = XMR_HASHBITLEN;
-  memcpy(state.u.ctx_512.X,SKEIN_512_IV_256,sizeof(state.u.ctx_512.X));
+  memcpy(state.u.ctx_512.X,SKEIN_512_IV_256__,sizeof(state.u.ctx_512.X));
   Skein_512_Ctxt_t* ctx = &(state.u.ctx_512);
   Skein_Start_New_Type(ctx,MSG);
 

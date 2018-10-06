@@ -87,9 +87,9 @@ void CudaWorker::start()
             uint32_t foundNonce[10];
             uint32_t foundCount;
   
-            cryptonight_extra_cpu_prepare(&m_ctx, m_nonce, m_algorithm);
-            cryptonight_gpu_hash(&m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
-            cryptonight_extra_cpu_final(&m_ctx, m_nonce, m_job.target(), &foundCount, foundNonce, m_algorithm);
+            cryptonight_extra_cpu_prepare(&m_ctx, m_nonce);
+            cryptonight_core_cpu_hash(&m_ctx, m_nonce); // m_algorithm, m_job.algorithm().variant(), 
+            cryptonight_extra_cpu_final(&m_ctx, m_nonce, m_job.target(), &foundCount, foundNonce);
 
             for (size_t i = 0; i < foundCount; i++) {
                 *m_job.nonce() = foundNonce[i];

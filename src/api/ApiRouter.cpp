@@ -54,7 +54,7 @@
 
 static inline double normalize(double d)
 {
-    if (!isnormal(d)) {
+    if (!std::isnormal(d)) {
         return 0.0;
     }
 
