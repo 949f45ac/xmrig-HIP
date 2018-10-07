@@ -41,18 +41,20 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - Reboot
 
 ## Building the miner
+- Install some build deps `sudo apt install cmake libuv1-dev libssl-dev`
 - Clone this repo, `mkdir build`
 - `cd build`
-- `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip`
+- `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF`
 - `make -j4`
+- If it says "file format not recognized" in the end (while linking) just `make` once more
 
 ### How do I choose threads and blocks?
 There’s a guide in the xmr-stak-hip repo
 tl;dr
-- Vega 8 GB: t = 8, b = 448
+- Vega 8 GB: t = 8, b = 448  or  16 x 224
 - Vega 16 GB: t = 16, b = 512
 - RX 470/570+: t = 4, b = 480 (when 4 GB) or 960
-- RX 460 etc. junk cards use t=8 again and b=448 or 224 (2 GB)
+- RX 460 etc. junk cards use t=8 again and b=224 or 112 (2 GB)
 
 **Do not use bsleep / bfactor I broke them.**
 
