@@ -21,17 +21,24 @@ Expert mode: Instead of Ubuntu take whatever distro you like, the stuff below is
 - Install ROCm without dkms:
 Follow this guide but stop when it wants you to install `rocm-dkms`:
 https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
-Then instead do this:
+
+- Then instead do this:
 `sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
+
+- Don't forget to add kdf rule: `echo 'SUBSYSTEM=="kfd", KERNEL=="kfd", TAG+="uaccess", GROUP="video"' | sudo tee /etc/udev/rules.d/70-kfd.rules`
+
+- Reboot
 
 ## 4.15 or older kernel and amdgpu-pro and ROCm
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
 Follow this guide but stop when it wants you to install `rocm-dkms`:
 https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
-Then instead do this:
+
+- Then instead do this:
 `sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
 - Install amdgpu-pro with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
+- Reboot
 
 # Building the miner
 - Clone this repo, `mkdir build`
@@ -48,6 +55,50 @@ tl;dr
 - RX 460 etc. junk cards use t=8 again and b=448 or 224 (2 GB)
 
 **Do not use bsleep / bfactor I broke them.**
+
+Example config:
+
+```json
+{
+    "algo": "cryptonight",
+    "background": false,
+    "colors": true,
+    "donate-level": 1,
+    "log-file": null,
+    "print-time": 20,
+    "retries": 5,
+    "retry-pause": 5,
+    "syslog": false,
+    "threads": [
+        {    // Vega 56 / 64
+            "index": 0,
+            "threads": 8,
+            "blocks": 448,
+            "bfactor": 0,
+            "bsleep": 0,
+            "sync_mode": 3
+        },
+        {    // RX 570
+            "index": 1,
+            "threads": 4,
+            "blocks": 480,
+            "bfactor": 0,
+            "bsleep": 0,
+            "sync_mode": 3
+	}
+    ],
+    "pools": [
+        {
+            "url": "gulf.moneroocean.stream:10032",
+            "user": "45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF",
+            "pass": "x",
+            "keepalive": true,
+            "nicehash": false
+        }
+    ]
+}
+
+```
 
 # How do I overclock?
 
