@@ -12,11 +12,11 @@ Supported algos:
 - XTL
 - automatic algo switching
 
-# Setup for High Vega Hashrate on Linux
+## Setup for High Vega Hashrate on Linux
 
 Expert mode: Instead of Ubuntu take whatever distro you like, the stuff below is just to give you an idea.
 
-## 4.18+ kernel and ROCm
+### 4.18+ kernel and ROCm
 - Install Ubuntu 18.10 beta, it comes with a 4.18 kernel
 - Install ROCm without dkms:
 Follow this guide but stop when it wants you to install `rocm-dkms`:
@@ -29,7 +29,7 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 
 - Reboot
 
-## 4.15 or older kernel and amdgpu-pro and ROCm
+### 4.15 or older kernel and amdgpu-pro and ROCm
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
 Follow this guide but stop when it wants you to install `rocm-dkms`:
@@ -40,13 +40,13 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - Install amdgpu-pro with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 - Reboot
 
-# Building the miner
+## Building the miner
 - Clone this repo, `mkdir build`
 - `cd build`
 - `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip`
 - `make -j4`
 
-# How do I choose threads and blocks?
+### How do I choose threads and blocks?
 There’s a guide in the xmr-stak-hip repo
 tl;dr
 - Vega 8 GB: t = 8, b = 448
@@ -100,11 +100,19 @@ Example config:
 
 ```
 
-# How do I overclock?
+## Automatic donations still go to original XMRig authors
+Default donation 5% (5 minutes in 100 minutes) can be reduced to 1% via command line option `--donate-level`.
+
+## If you want to donate to me (949f45ac) who did HIP port + optimization
+
+* XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
+* BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`
+
+## How do I overclock?
 
 No idea, look at this: https://github.com/RadeonOpenCompute/ROCm/issues/463
 
-### Command line options
+## Command line options (unchanged)
 ```
   -a, --algo=ALGO           cryptonight (default) or cryptonight-lite
   -o, --url=URL             URL of mining server
@@ -135,11 +143,3 @@ No idea, look at this: https://github.com/RadeonOpenCompute/ROCm/issues/463
   -h, --help                display this help and exit
   -V, --version             output version information and exit
 ```
-
-## Automatic donations still go to original XMRig authors
-Default donation 5% (5 minutes in 100 minutes) can be reduced to 1% via command line option `--donate-level`.
-
-## If you want to donate to me (949f45ac) who did HIP port + optimization
-
-* XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
-* BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`
