@@ -1,51 +1,57 @@
-# XMRig NVIDIA
+# XMRig HIP
 
-:warning: **You must update miners to version 2.5 before April 6 due [Monero PoW change](https://getmonero.org/2018/02/11/PoW-change-and-key-reuse.html).**
+**Why use this?** Can be a bit faster than OpenCL and CUDA miners, YMMV.
 
-[![Github All Releases](https://img.shields.io/github/downloads/xmrig/xmrig-nvidia/total.svg)](https://github.com/xmrig/xmrig-nvidia/releases)
-[![GitHub release](https://img.shields.io/github/release/xmrig/xmrig-nvidia/all.svg)](https://github.com/xmrig/xmrig-nvidia/releases)
-[![GitHub Release Date](https://img.shields.io/github/release-date-pre/xmrig/xmrig-nvidia.svg)](https://github.com/xmrig/xmrig-nvidia/releases)
-[![GitHub license](https://img.shields.io/github/license/xmrig/xmrig-nvidia.svg)](https://github.com/xmrig/xmrig-nvidia/blob/master/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/xmrig/xmrig-nvidia.svg)](https://github.com/xmrig/xmrig-nvidia/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/xmrig/xmrig-nvidia.svg)](https://github.com/xmrig/xmrig-nvidia/network)
+HIP CryptoNight miner based on XMRig. For more info on HIP and the approach of this miner check out the original `xmr-stak-hip` project: https://github.com/949f45ac/xmr-stak-hip
 
-XMRig is high performance Monero (XMR) NVIDIA miner, with the official full Windows support.
+This is a linux-only miner. Theoretically it does support AMD as well as nvidia cards, but nvidia cards are currently untested again.
 
-GPU mining part based on [psychocrypt](https://github.com/psychocrypt) code used in xmr-stak-nvidia.
+Supported algos:
+- CN/1 aka Monero7
+- MSR
+- XTL
+- automatic algo switching
 
-* This is the **NVIDIA GPU** mining version, there is also a [CPU version](https://github.com/xmrig/xmrig) and [AMD GPU version]( https://github.com/xmrig/xmrig-amd).
-* [Roadmap](https://github.com/xmrig/xmrig/issues/106) for next releases.
+# Setup for High Vega Hashrate on Linux
 
-:warning: Suggested values for GPU auto configuration can be not optimal or not working, you may need tweak your threads options. Please feel free open an [issue](https://github.com/xmrig/xmrig-nvidia/issues) if auto configuration suggest wrong values.
+Expert mode: Instead of Ubuntu take whatever distro you like, the stuff below is just to give you an idea.
 
-<img src="https://i.imgur.com/wRCZ3IJ.png" width="620" >
+## 4.18+ kernel and ROCm
+- Install Ubuntu 18.10 beta, it comes with a 4.18 kernel
+- Install ROCm without dkms:
+Follow this guide but stop when it wants you to install `rocm-dkms`:
+https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
+Then instead do this:
+`sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
 
-#### Table of contents
-* [Features](#features)
-* [Download](#download)
-* [Usage](#usage)
-* [Build](https://github.com/xmrig/xmrig-nvidia/wiki/Build)
-* [Donations](#donations)
-* [Release checksums](#release-checksums)
-* [Contacts](#contacts)
+## 4.15 or older kernel and amdgpu-pro and ROCm
+- Install Ubuntu 18.04 or 16.04
+- Install ROCm without dkms:
+Follow this guide but stop when it wants you to install `rocm-dkms`:
+https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
+Then instead do this:
+`sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
+- Install amdgpu-pro with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 
-## Features
-* High performance.
-* Official Windows support.
-* Support for backup (failover) mining server.
-* CryptoNight-Lite support for AEON.
-* Automatic GPU configuration.
-* GPU health monitoring (clocks, power, temperature, fan speed) 
-* Nicehash support.
-* It's open source software.
+# Building the miner
+- Clone this repo, `mkdir build`
+- `cd build`
+- `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip`
+- `make -j4`
 
-## Download
-* Binary releases: https://github.com/xmrig/xmrig-nvidia/releases
-* Git tree: https://github.com/xmrig/xmrig-nvidia.git
-  * Clone with `git clone https://github.com/xmrig/xmrig-nvidia.git`  :hammer: [Build instructions](https://github.com/xmrig/xmrig-nvidia/wiki/Build).
+# How do I choose threads and blocks?
+There’s a guide in the xmr-stak-hip repo
+tl;dr
+- Vega 8 GB: t = 8, b = 448
+- Vega 16 GB: t = 16, b = 512
+- RX 470/570+: t = 4, b = 480 (when 4 GB) or 960
+- RX 460 etc. junk cards use t=8 again and b=448 or 224 (2 GB)
 
-## Usage
-Use [config.xmrig.com](https://config.xmrig.com/nvidia) to generate, edit or share configurations.
+**Do not use bsleep / bfactor I broke them.**
+
+# How do I overclock?
+
+No idea, look at this: https://github.com/RadeonOpenCompute/ROCm/issues/463
 
 ### Command line options
 ```
@@ -79,19 +85,10 @@ Use [config.xmrig.com](https://config.xmrig.com/nvidia) to generate, edit or sha
   -V, --version             output version information and exit
 ```
 
-## Donations
+## Automatic donations still go to original XMRig authors
 Default donation 5% (5 minutes in 100 minutes) can be reduced to 1% via command line option `--donate-level`.
 
-* XMR: `48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD`
-* BTC: `1P7ujsXeX7GxQwHNnJsRMgAdNkFZmNVqJT`
+## If you want to donate to me (949f45ac) who did HIP port + optimization
 
-## Release checksums
-### SHA-256
-```
-30accf8b03c8bfd90034e6e49fe733a438dff6b530faf411aab6fe738a06fa8b xmrig-nvidia-2.7.0-beta-cuda8-win64.zip/xmrig-nvidia.exe
-ec408bd837141bb8e0e7e6b4f76264255a3986f1e5a858400e6870bfad7e3214 xmrig-nvidia-2.7.0-beta-cuda9-win64.zip/xmrig-nvidia.exe
-```
-
-## Contacts
-* support@xmrig.com
-* [reddit](https://www.reddit.com/user/XMRig/)
+* XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
+* BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`

@@ -533,14 +533,6 @@ extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Var
             cryptonight_core_cpu_hash<VARIANT_MSR>(ctx, startNonce);
             break;
 
-        case VARIANT_XAO:
-            cryptonight_core_cpu_hash<VARIANT_XAO>(ctx, startNonce);
-            break;
-
-        case VARIANT_RTO:
-            cryptonight_core_cpu_hash<VARIANT_RTO>(ctx, startNonce);
-            break;
-
         default:
             break;
         }
