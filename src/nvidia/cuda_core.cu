@@ -312,7 +312,8 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 			if(VARIANT == xmrig::VARIANT_XTL) {
 				index = ((fork_7 >> 27) & 12) | ((fork_7 >> 23) & 2);
 			} else {
-				index = ((fork_7 >> 26) & 12) | ((fork_7 >> 23) & 2);
+				uint8_t xo = fork_7 >> 24;
+				index = (((xo >> 3) & 6) | (xo & 1)) << 1;
 			}
 
 			const uint16_t table = 0x7531;
@@ -379,6 +380,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 			a.y ^= y2.y;
 
 			WAIT_FOR(ldst.x, 1)
+			FENCE(ldst.y)
 			PRIO(3)
 			x64.x = same_adr ? a_stor.x : ldst.x;
 			x64.y = same_adr ? a_stor.y : ldst.y;
