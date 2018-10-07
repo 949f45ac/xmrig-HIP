@@ -229,8 +229,9 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 					   "{v20}" (s32[0]), "{v21}" (s32[1]), "{v22}" (s32[2]), "{v23}" (s32[3])); }
 
 
+template<xmrig::Variant VARIANT>
 #ifdef __HCC__
-__launch_bounds__( 8 )
+__launch_bounds__( 16 )
 #else
 //__launch_bounds__( 64 )
 #endif
@@ -248,9 +249,9 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 	const int thread = ( hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x );
 
 	int i;
-        uint32_t j0, j1;
+    uint32_t j0, j1;
 	bool same_adr;
-	const int batchsize = ITER >> ( 2 );
+	const int batchsize = ITER >> ( VARIANT == xmrig::VARIANT_MSR ? 3 : 2 );
 	const int start = 0;
 	const int end = start + batchsize;
 	ulonglong2 * __restrict__ long_state = reinterpret_cast<ulonglong2*>(d_long_state_64 + ((((IndexType) thread) << 19) / 2));
@@ -306,10 +307,15 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 			d_xored.y ^= d[1].y;
 
 			uint64_t fork_7 = d_xored.y;
-			uint8_t xo = fork_7 >> 24;
+
+			uint8_t index;
+			if(VARIANT == xmrig::VARIANT_XTL) {
+				index = ((fork_7 >> 27) & 12) | ((fork_7 >> 23) & 2);
+			} else {
+				index = ((fork_7 >> 26) & 12) | ((fork_7 >> 23) & 2);
+			}
 
 			const uint16_t table = 0x7531;
-			uint8_t index = (((xo >> 3) & 6) | (xo & 1)) << 1;
 			fork_7 ^= ((table >> index) & 0x3) << 28;
 
 			d_xored.y = fork_7;
@@ -362,7 +368,6 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 			
 #ifdef __HCC__
 			ASYNC_STORE(long_state+j1, a_stor);
-//			PRIO(0)
 #else
 			long_state[j1] = a_stor;
 #endif
@@ -375,13 +380,10 @@ __global__ void cryptonight_core_gpu_phase2( int threads, int bfactor, int parti
 
 			WAIT_FOR(ldst.x, 1)
 			PRIO(3)
-//			FENCE(ldst.y)
 			x64.x = same_adr ? a_stor.x : ldst.x;
 			x64.y = same_adr ? a_stor.y : ldst.y;
 			RETIRE(ldst.y)
 		}
-		// Voodoo
-//		if (i % 32 == 0) asm volatile("s_barrier" ::);
 	}
 /*
 	if ( bfactor > 0 )
@@ -437,8 +439,9 @@ __global__ void cryptonight_core_gpu_phase3( int threads, int bfactor, int parti
 	memc_<1>(d_ctx_state + thread * 50 + sub + 16, &text);
 	__syncthreads( );
 }
-
-extern "C" void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
+// extern "C" 
+template<xmrig::Variant VARIANT>
+void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid( ctx->device_blocks );
 	dim3 grid_halved( ctx->device_blocks / 2 );
@@ -486,8 +489,10 @@ extern "C" void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 	for ( int i = 0; i < partcount; i++ )
 	{
+#if DEBUG
 		printf("Starting run for nonce %d\n", nonce);
-        hipLaunchKernelGGL(cryptonight_core_gpu_phase2, dim3(grid), dim3(block), 0, 0, ctx->device_blocks*ctx->device_threads,
+#endif
+        hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT>, dim3(grid), dim3(block), 0, 0, ctx->device_blocks*ctx->device_threads,
             ctx->device_bfactor,
             i,
             ctx->d_long_state,
@@ -506,4 +511,40 @@ extern "C" void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 			ctx->d_ctx_state, ctx->d_ctx_key2);
 		exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 	}
+}
+
+extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
+{
+    using namespace xmrig;
+
+    if (algo == CRYPTONIGHT) {
+        switch (variant) {
+        case VARIANT_1:
+            cryptonight_core_cpu_hash<VARIANT_1>(ctx, startNonce);
+            break;
+
+        case VARIANT_XTL:
+            cryptonight_core_cpu_hash<VARIANT_XTL>(ctx, startNonce);
+            break;
+
+        case VARIANT_MSR:
+            cryptonight_core_cpu_hash<VARIANT_MSR>(ctx, startNonce);
+            break;
+
+        case VARIANT_XAO:
+            cryptonight_core_cpu_hash<VARIANT_XAO>(ctx, startNonce);
+            break;
+
+        case VARIANT_RTO:
+            cryptonight_core_cpu_hash<VARIANT_RTO>(ctx, startNonce);
+            break;
+
+        default:
+            break;
+        }
+    }
+    else {
+		printf("Only CN1, XTL, MSR supported for now.");
+		return;
+    }
 }

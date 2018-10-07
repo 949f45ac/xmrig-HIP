@@ -130,6 +130,7 @@ set(SOURCES_CRYPTO
    )
 
 if (WIN32)
+   	message(FATAL_ERROR "HIP does not run on Windows")
     set(SOURCES_OS
         res/app.rc
         src/App_win.cpp
@@ -140,6 +141,8 @@ if (WIN32)
     add_definitions(/DWIN32)
     set(EXTRA_LIBS ws2_32 psapi iphlpapi userenv)
 elseif (APPLE)
+	message(FATAL_ERROR "HIP does not run on MacOS")
+	
     set(SOURCES_OS
         src/App_unix.cpp
         src/common/Platform_mac.cpp

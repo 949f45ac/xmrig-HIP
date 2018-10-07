@@ -296,8 +296,9 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 	hipMemcpy( resnonce, ctx->d_result_nonce, 10 * sizeof (uint32_t ), hipMemcpyDeviceToHost );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-
+#if DEBUG
 	printf ("Run for startnonce %d with target %016lX over.\n", startNonce, target);
+#endif
 	for(int i=0; i < *rescount; i++) {
 		printf ("Found raw resnonce %d.\n", resnonce[i]);
 		resnonce[i] += startNonce;
