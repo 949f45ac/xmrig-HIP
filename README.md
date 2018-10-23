@@ -6,7 +6,7 @@
 A Linux CryptoNight GPU miner built on the HIP framework.
 
 Features:
-- Fast and stable mining with Vega cards, 1600 H/s and up
+- Fast and stable mining with Vega cards, CN/2 1600+ H/s, CN/1 1700+ H/s
 - Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL (both Cn7 and Cn8)
 - Small Polaris cards (_50, _60) can also be mined on; Cn8 almost as fast as Cn7
 - Multi algo support for Cn7/Cn8, meaning you can mine on MoneroOcean

@@ -632,7 +632,7 @@ template<xmrig::Variant VARIANT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid, block;
-	if (VARIANT != xmrig::VARIANT_2) {
+	if (VARIANT != xmrig::VARIANT_2 && ctx->device_threads > 8) {
 		grid = dim3( ctx->device_blocks << 1 );
 		block = dim3( ctx->device_threads >> 1);
 	} else {
