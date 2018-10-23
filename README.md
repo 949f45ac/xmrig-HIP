@@ -20,10 +20,11 @@ Caveat emptor
 
 ## Setup for High Vega Hashrate on Linux
 
-Currently the miner gets best hashrate when run in concert with amdgpu-pro.
+Currently the miner gets best hashrate when run in concert with
+amdgpu-pro.
+
 Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
-### 4.15 or older kernel and amdgpu-pro and ROCm
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
 Follow this guide but stop when it wants you to install `rocm-dkms`:
@@ -60,9 +61,13 @@ an integer multiple of CU count, and `T x B x 2 < (Memory in MB)`.
 
 E.g.:
 Vega 56 has 56 CU.
+
 56 x 4 = 224
+
 224 x 16 x 2 = 7168
+
 7168 < 8000
+
 
 In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
 most cases it will not.
