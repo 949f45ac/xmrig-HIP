@@ -1,11 +1,14 @@
+**Please double your threads and halven your blocks if you are migrating an existing HIP miner config from CN7.**
+**For best performance, please use amdgpu-pro dkms driver.**
+
 # XMRig HIP
 
 A Linux CryptoNight GPU miner built on the HIP framework.
 
 Features:
-- Fast and stable mining with Vega cards
-- Very fast on large Polaris cards
-- Runs small Polaris cards (_50, _60) too; Cn8 almost as fast as Cn7
+- Fast and stable mining with Vega cards, 1600 H/s and up
+- Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL (both Cn7 and Cn8)
+- Small Polaris cards (_50, _60) can also be mined on; Cn8 almost as fast as Cn7
 - Multi algo support for Cn7/Cn8, meaning you can mine on MoneroOcean
 - Configuration is automatically adjusted for optimal speed when auto-switching between Cn7 and Cn8
 - Mine on a full open source stack, aside from parts of the amdgpu-pro driver
@@ -16,6 +19,9 @@ Caveat emptor
 - Nvidia cards are theoretically supported, but that needs more testing
 
 ## Setup for High Vega Hashrate on Linux
+
+Currently the miner gets best hashrate when run in concert with amdgpu-pro.
+Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 ### 4.15 or older kernel and amdgpu-pro and ROCm
 - Install Ubuntu 18.04 or 16.04
