@@ -119,9 +119,25 @@ __global__ void cryptonight_extra_gpu_prepare( int threads, uint32_t * __restric
 	XOR_BLOCKS_DST( ctx_state + 4, ctx_state + 12, ctx_b );
         __threadfence_block();
 
+
 	memcpy( d_ctx_state + thread * 50, ctx_state, 50 * 4 );
 	memcpy( d_ctx_a + thread * 4, ctx_a, 4 * 4 );
-	memcpy( d_ctx_b + thread * 4, ctx_b, 4 * 4 );
+
+	
+
+	memcpy( d_ctx_b + thread * 12, ctx_b, 4 * 4 );
+
+	///// IF v8
+	// bx1
+	XOR_BLOCKS_DST( ctx_state + 16, ctx_state + 20, ctx_b );
+	memcpy( d_ctx_b + thread * 12 + 4, ctx_b, 4 * 4 );
+	// division_result
+	memcpy( d_ctx_b + thread * 12 + 2 * 4, ctx_state + 24, 4 * 2 );
+	// sqrt_result
+	memcpy( d_ctx_b + thread * 12 + 2 * 4 + 2, ctx_state + 26, 4 * 2 );
+	//// endif
+
+	
 	memcpy( d_ctx_key1 + thread * 40, ctx_key1, 40 * 4 );
 	memcpy( d_ctx_key2 + thread * 40, ctx_key2, 40 * 4 );
 }
@@ -164,8 +180,6 @@ __global__ void cryptonight_extra_gpu_final( int threads, uint64_t target, uint3
 	default:
 		break;
 	}
-
-	memcpy( d_ctx_state + thread * 50, state, 50 * 4 );
 
 	// Note that comparison is equivalent to subtraction - we can't just compare 8 32-bit values
 	// and expect an accurate result for target > 32-bit without implementing carries
@@ -220,7 +234,7 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx)
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 	hipMalloc(&ctx->d_ctx_a, 4 * sizeof(uint32_t) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
-	hipMalloc(&ctx->d_ctx_b, 4 * sizeof(uint32_t) * wsize);
+	hipMalloc(&ctx->d_ctx_b, 3 * 4 * sizeof(uint32_t) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 	hipMalloc(&ctx->d_input, 21 * sizeof (uint32_t ) );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
@@ -290,7 +304,7 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 
 	hipLaunchKernelGGL(cryptonight_extra_gpu_final, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-	//hipDeviceSynchronize();
+	hipDeviceSynchronize();
 
 	hipMemcpy( rescount, ctx->d_result_count, sizeof (uint32_t ), hipMemcpyDeviceToHost );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
@@ -300,7 +314,9 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	printf ("Run for startnonce %d with target %016lX over.\n", startNonce, target);
 #endif
 	for(int i=0; i < *rescount; i++) {
+#if DEBUG
 		printf ("Found raw resnonce %d.\n", resnonce[i]);
+#endif
 		resnonce[i] += startNonce;
 	}
 }

@@ -1,33 +1,21 @@
 # XMRig HIP
 
-**Why use this?** Can be a bit faster than OpenCL and CUDA miners, YMMV.
+A Linux CryptoNight GPU miner built on the HIP framework.
 
-HIP CryptoNight miner based on XMRig. For more info on HIP and the approach of this miner check out the original `xmr-stak-hip` project: https://github.com/949f45ac/xmr-stak-hip
+Features:
+- Fast and stable mining with Vega cards
+- Very fast on large Polaris cards
+- Runs small Polaris cards (_50, _60) too; Cn8 almost as fast as Cn7
+- Multi algo support for Cn7/Cn8, meaning you can mine on MoneroOcean
+- Configuration is automatically adjusted for optimal speed when auto-switching between Cn7 and Cn8
+- Mine on a full open source stack, aside from parts of the amdgpu-pro driver
 
-This is a linux-only miner. Theoretically it does support AMD as well as nvidia cards, but nvidia cards are currently untested again.
-
-Supported algos:
-- CN/1 aka Monero7
-- MSR
-- XTL
-- automatic algo switching
+Caveat emptor
+- Vega Cn7 performance in HIP is often a bit worse than OpenCL Cn7 performance
+- Polaris cards need to run in a true PCIe 3.0 x8 or x16 slot – no risers!
+- Nvidia cards are theoretically supported, but that needs more testing
 
 ## Setup for High Vega Hashrate on Linux
-
-Expert mode: Instead of Ubuntu take whatever distro you like, the stuff below is just to give you an idea.
-
-### 4.18+ kernel and ROCm
-- Install Ubuntu 18.10 beta, it comes with a 4.18 kernel
-- Install ROCm without dkms:
-Follow this guide but stop when it wants you to install `rocm-dkms`:
-https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
-
-- Then instead do this:
-`sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
-
-- Don't forget to add kdf rule: `echo 'SUBSYSTEM=="kfd", KERNEL=="kfd", TAG+="uaccess", GROUP="video"' | sudo tee /etc/udev/rules.d/70-kfd.rules`
-
-- Reboot
 
 ### 4.15 or older kernel and amdgpu-pro and ROCm
 - Install Ubuntu 18.04 or 16.04
@@ -35,8 +23,8 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 Follow this guide but stop when it wants you to install `rocm-dkms`:
 https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
 
-- Then instead do this:
-`sudo apt install rocm-opencl rocm-clang-ocl rocminfo rocm-smi rocm-utils hip_hcc`
+- Then instead do this: `sudo apt install rocminfo rocm-smi rocm-utils hip_hcc`
+- Add your user to video group `sudo usermod -a -G video $LOGNAME`
 - Install amdgpu-pro with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 - Reboot
 
@@ -49,70 +37,40 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - If it says "file format not recognized" in the end (while linking) just `make` once more
 
 ### How do I choose threads and blocks?
-There’s a guide in the xmr-stak-hip repo
 tl;dr
-- Vega 8 GB: t = 8, b = 448  or  16 x 224
-- Vega 16 GB: t = 16, b = 512
-- RX 470/570+: t = 4, b = 480 (when 4 GB) or 960
-- RX 460 etc. junk cards use t=8 again and b=224 or 112 (2 GB)
 
-**Do not use bsleep / bfactor I broke them.**
+- Vega 8 GB: Threads = 16, Blocks = 224 (4 * 56) or 192 (3 * 64)
+- Vega 16 GB: Threads = 16, Blocks = 512
+- Polaris _70 or _80: Threads = 8, Blocks: Try 216, 224, 240, 252, or double that if the card has 8 GB memory.
+- Polaris _50 or _60: Threads = 16, Blocks: Try 56, 64 for 2 GB, or double that if the card has 4 GB memory.
 
-Example config:
+Technical note: When mining a Cn7 algorithm (msr or xtl), the miner will automatically use half the
+threads and double the blocks.
 
-```json
-{
-    "algo": "cryptonight",
-    "background": false,
-    "colors": true,
-    "donate-level": 1,
-    "log-file": null,
-    "print-time": 20,
-    "retries": 5,
-    "retry-pause": 5,
-    "syslog": false,
-    "threads": [
-        {    // Vega 56 / 64
-            "index": 0,
-            "threads": 8,
-            "blocks": 448,
-            "bfactor": 0,
-            "bsleep": 0,
-            "sync_mode": 3
-        },
-        {    // RX 570
-            "index": 1,
-            "threads": 4,
-            "blocks": 480,
-            "bfactor": 0,
-            "bsleep": 0,
-            "sync_mode": 3
-	}
-    ],
-    "pools": [
-        {
-            "url": "gulf.moneroocean.stream:10032",
-            "user": "45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF",
-            "pass": "x",
-            "keepalive": true,
-            "nicehash": false
-        }
-    ]
-}
+More detailed explanation:
 
-```
+You want 16 threads on most cards, and a number of blocks that is
+an integer multiple of CU count, and `T x B x 2 < (Memory in MB)`.
+
+E.g.:
+Vega 56 has 56 CU.
+56 x 4 = 224
+224 x 16 x 2 = 7168
+7168 < 8000
+
+In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
+most cases it will not.
+
+## If you want to donate to me (949f45ac) who did HIP port + optimization
+* XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
+* BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`
 
 ## Automatic donations still go to original XMRig authors
 Default donation 5% (5 minutes in 100 minutes) can be reduced to 1% via command line option `--donate-level`.
 
-## If you want to donate to me (949f45ac) who did HIP port + optimization
-
-* XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
-* BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`
-
 ## How do I overclock?
-
-No idea, look at this: https://github.com/RadeonOpenCompute/ROCm/issues/463
+Use soft pp tables.
+Check out this guide, for example: https://github.com/xmrminer01102018/VegaToolsNConfigs
 
 ## Command line options (unchanged)
 ```

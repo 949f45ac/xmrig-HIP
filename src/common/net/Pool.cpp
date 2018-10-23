@@ -379,7 +379,7 @@ void Pool::rebuild()
     m_algorithms.push_back(m_algorithm);
 
 #   ifndef XMRIG_PROXY_PROJECT
-    // addVariant(xmrig::VARIANT_2);
+    addVariant(xmrig::VARIANT_2);
     addVariant(xmrig::VARIANT_1);
     // addVariant(xmrig::VARIANT_0);
     addVariant(xmrig::VARIANT_XTL);
