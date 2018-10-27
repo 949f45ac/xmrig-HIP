@@ -48,6 +48,7 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 tl;dr
 
 Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
+
 Use the following threads/blocks depending on card:
 
 - Vega 8 GB: Threads = 16, Blocks = 224 (4 * 56) or 192 (3 * 64)
@@ -57,24 +58,6 @@ Use the following threads/blocks depending on card:
 
 Technical note: When mining a Cn7 algorithm (msr or xtl), the miner will automatically use half the
 threads and double the blocks.
-
-More detailed explanation:
-
-You want 16 threads on most cards, and a number of blocks that is
-an integer multiple of CU count, and `T x B x 2 < (Memory in MB)`.
-
-E.g.:
-Vega 56 has 56 CU.
-
-56 x 4 = 224
-
-224 x 16 x 2 = 7168
-
-7168 < 8000
-
-
-In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
-most cases it will not.
 
 Example config:
 
@@ -118,6 +101,24 @@ Example config:
     ]
 }
 ```
+
+More detailed explanation:
+
+You want 16 threads on most cards, and a number of blocks that is
+an integer multiple of CU count, and `T x B x 2 < (Memory in MB)`.
+
+E.g.:
+Vega 56 has 56 CU.
+
+56 x 4 = 224
+
+224 x 16 x 2 = 7168
+
+7168 < 8000
+
+
+In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
+most cases it will not.
 
 ## If you want to donate to me (949f45ac) who did HIP port + optimization
 * XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
