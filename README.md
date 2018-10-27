@@ -42,9 +42,13 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF`
 - `make -j4`
 - If it says "file format not recognized" in the end (while linking) just `make` once more
+- Now copy `src/config.json` to your directory and configure GPUs like explained below.
 
 ### How do I choose threads and blocks?
 tl;dr
+
+Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
+Use the following threads/blocks depending on card:
 
 - Vega 8 GB: Threads = 16, Blocks = 224 (4 * 56) or 192 (3 * 64)
 - Vega 16 GB: Threads = 16, Blocks = 512
@@ -71,6 +75,49 @@ Vega 56 has 56 CU.
 
 In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
 most cases it will not.
+
+Example config:
+
+```json
+{
+    "algo": "cryptonight",
+    "background": false,
+    "colors": true,
+    "donate-level": 1,
+    "log-file": null,
+    "print-time": 20,
+    "retries": 5,
+    "retry-pause": 5,
+    "syslog": false,
+    "threads": [
+        {    // Vega 56 / 64
+            "index": 0,
+            "threads": 16,
+            "blocks": 224,
+            "bfactor": 0,
+            "bsleep": 0,
+            "sync_mode": 3
+        },
+        {    // RX 570
+            "index": 1,
+            "threads": 8,
+            "blocks": 240,
+            "bfactor": 0,
+            "bsleep": 0,
+            "sync_mode": 3
+       }
+    ],
+    "pools": [
+        {
+            "url": "gulf.moneroocean.stream:10032",
+            "user": "45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF",
+            "pass": "x",
+            "keepalive": true,
+            "nicehash": false
+        }
+    ]
+}
+```
 
 ## If you want to donate to me (949f45ac) who did HIP port + optimization
 * XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`

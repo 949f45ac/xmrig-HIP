@@ -104,7 +104,7 @@ int App::exec()
     Summary::print(m_controller);
 
     if (m_controller->config()->threads().empty()) {
-        LOG_ERR("No CUDA device found!");
+        LOG_ERR("No GPU correctly configured in your config file!");
         return 1;
     }
 
