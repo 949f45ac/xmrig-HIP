@@ -1,38 +1,34 @@
-**Please double your threads and halven your blocks if you are migrating an existing HIP miner config from CN7.**
 **For best performance, please use amdgpu-pro dkms driver.**
+**Crank up your sclk (core clock) for fast hashrates! Use threads=32 on Vega to save power!**
 
 # XMRig HIP
 
 A Linux CryptoNight GPU miner built on the HIP framework.
 
 Features:
-- Fast and stable mining with Vega cards, CN/2 1600+ H/s, CN/1 1700+ H/s
+- Fast and stable mining with Vega cards! 1800+ CN/2, 2000+ CN/1+xtl+msr
 - Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL (both Cn7 and Cn8)
-- Small Polaris cards (_50, _60) can also be mined on; Cn8 almost as fast as Cn7
+- Small Polaris cards (_50, _60) can also be mined on; Cn8 faster than Cn7!
 - Multi algo support for Cn7/Cn8, meaning you can mine on MoneroOcean
-- Configuration is automatically adjusted for optimal speed when auto-switching between Cn7 and Cn8
-- Mine on a full open source stack, aside from parts of the amdgpu-pro driver
 
 Caveat emptor
-- Vega Cn7 performance in HIP is often a bit worse than OpenCL Cn7 performance
 - Polaris cards need to run in a true PCIe 3.0 x8 or x16 slot – no risers!
 - Nvidia cards are theoretically supported, but that needs more testing
 
 ## Setup for High Vega Hashrate on Linux
 
-Currently the miner gets best hashrate when run in concert with
-amdgpu-pro.
+*Currently the miner is fast ONLY when run with amdgpu-pro dkms driver!*
 
 Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
-Follow this guide but stop when it wants you to install `rocm-dkms`:
+Follow this guide but *stop* when it wants you to install `rocm-dkms`:
 https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
 
 - Then instead do this: `sudo apt install rocminfo rocm-smi rocm-utils hip_hcc`
 - Add your user to video group `sudo usermod -a -G video $LOGNAME`
-- Install amdgpu-pro with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
+- Install [amdgpu-pro](https://www.amd.com/en/support/kb/release-notes/rn-prorad-lin-18-30) with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 - Reboot
 
 ## Building the miner
@@ -42,19 +38,21 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF`
 - `make -j4`
 - If it says "file format not recognized" in the end (while linking) just `make` once more
-- Now copy `src/config.json` to your directory and configure GPUs like explained below.
+- Now copy `src/config.json` to your directory, configure pools and either let GPUs be autoconfigured or manually configure them like explained below.
 
 ### How do I choose threads and blocks?
 tl;dr
 
 Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
 
-Use the following threads/blocks depending on card:
+Use the following threads/blocks depending on card.
+In most cases, you can also use double the threads and half the blocks, in order to become more energy efficient at a minor hashrate cost.
 
-- Vega 8 GB: Threads = 16, Blocks = 224 (4 * 56) or 192 (3 * 64)
-- Vega 16 GB: Threads = 16, Blocks = 512
+- Vega 56: Threads = 32, Blocks = 112
+- Vega 64: T=32 B=120
+- Vega 16 GB: T=32 B=128
 - Polaris _70 or _80: Threads = 8, Blocks: Try 216, 224, 240, 252, or double that if the card has 8 GB memory.
-- Polaris _50 or _60: Threads = 16, Blocks: Try 56, 64 for 2 GB, or double that if the card has 4 GB memory.
+- Polaris _50 or _60: Threads = 64, Blocks: CU count
 
 Technical note: When mining a Cn7 algorithm (msr or xtl), the miner will automatically use half the
 threads and double the blocks.

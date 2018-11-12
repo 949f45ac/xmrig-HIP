@@ -217,8 +217,8 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx)
 	hipSetDeviceFlags(hipDeviceScheduleBlockingSync);
 	hipDeviceSetCacheConfig(hipFuncCachePreferL1);
 #else
-        cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
-        cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 #endif
 
 	size_t wsize = ctx->device_blocks * ctx->device_threads;
@@ -347,8 +347,6 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	hipError_t err;
 	int version;
 
-	printf("Start deviceinfo\n");
-
 	err = hipDriverGetVersion(&version);
 	if(err != hipSuccess)
 	{
@@ -393,48 +391,62 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	ctx->device_arch[1] = props.minor;
 #endif
 
-	// set all evice option those marked as auto (-1) to a valid value
-	if(ctx->device_blocks == -1)
-	{
-		/* good values based of my experience
-		 *	 - 3 * SMX count >=sm_30
-		 *   - 2 * SMX count for <sm_30
-		 */
-		ctx->device_blocks = props.multiProcessorCount *
-			( props.major < 3 ? 2 : 3 );
-	}
 	if(ctx->device_threads == -1)
 	{
-		/* sm_20 devices can only run 512 threads per cuda block
-		 * `cryptonight_core_gpu_phase1` and `cryptonight_core_gpu_phase3` starts
-		 * `8 * ctx->device_threads` threads per block
-		 */
-		ctx->device_threads = 64;
-		if(props.major < 6)
-		{
-			// try to stay under 950 threads ( 1900MiB memory per for hashes )
-			while(ctx->device_blocks * ctx->device_threads >= 950 && ctx->device_threads > 2)
-			{
-				ctx->device_threads /= 2;
-			}
+		if (props.multiProcessorCount < 20) {
+			// Small Polaris
+			ctx->device_threads = 64;
+		} else if (props.multiProcessorCount < 40) {
+			// Big Polaris
+			ctx->device_threads = 16;
+		} else {
+			// Vega
+			ctx->device_threads = 32;
 		}
 
-		// stay within 85% of the available RAM
-		while(ctx->device_threads > 2)
+		printf("INFO: Set %s threads to: %d.\n", ctx->device_name, ctx->device_threads);
+	}
+
+	int d = 1 << (ctx->device_mpcount > 24 ? 8 : 6);
+
+	if(ctx->device_blocks == -1)
+	{
+		int blocks_for_sector = d / ctx->device_threads;
+		size_t freeMemory = props.totalGlobalMem;
+
+		size_t memory_95 = (freeMemory * size_t(95)) / 100;
+		size_t memory_70 = (freeMemory * size_t(70)) / 100;
+
+		printf("INFO: %s free memory: %lu.\n", ctx->device_name, freeMemory);
+		printf("INFO: Blocks for sector: %d.\n", blocks_for_sector);
+
+		ctx->device_blocks = 0;
+		while(true)
 		{
-			size_t freeMemory = 0;
-			size_t totalMemory = 0;
-			hipMemGetInfo(&freeMemory, &totalMemory);
-			exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-			freeMemory = (freeMemory * size_t(85)) / 100;
-			if( freeMemory > (size_t(ctx->device_blocks) * size_t(ctx->device_threads) * size_t(2u * 1024u * 1024u)) )
+			int next_size = ctx->device_blocks + blocks_for_sector;
+			printf("INFO: Next size: %d.\n", next_size);
+			size_t nextmem = size_t(next_size) * size_t(ctx->device_threads) * size_t(2u * 1024u * 1024u);
+			printf("INFO: nextmem %lu\n", nextmem);
+			if( nextmem > memory_95 ) {
+				printf("INFO: break 1\n");
 				break;
-			else
-				ctx->device_threads /= 2;
+			} else if(nextmem > memory_70 && (ctx->device_blocks % ctx->device_mpcount == 0)) {
+				printf("INFO: break 2\n");
+				break;
+			} else {
+				ctx->device_blocks = next_size;
+			}
 		}
 	}
 
-	printf("Passed deviceinfo\n");
+	int t = ctx->device_threads * ctx->device_blocks;
+	int rest = t % d;
+	if (rest > 0) {
+		int suggested = ctx->device_blocks - (rest / ctx->device_threads);
+		printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Auto-lowering blocks to %d.\n",
+			   t, d, suggested);
+		ctx->device_blocks = suggested;
+	}
 
 	return 1;
 }

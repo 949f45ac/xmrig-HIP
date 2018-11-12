@@ -59,7 +59,7 @@ bool CudaCLI::setup(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo)
         ctx.device_bsleep  = bsleep(i);
         ctx.syncMode       = 3;
 
-        if (cuda_get_deviceinfo(&ctx, algo) != 0) {
+        if (cuda_get_deviceinfo(&ctx, algo) == 0) {
             continue;
         }
 
@@ -85,7 +85,7 @@ void CudaCLI::autoConf(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo)
         ctx.device_bsleep  = bsleep();
         ctx.syncMode       = 3;
 
-        if (cuda_get_deviceinfo(&ctx, algo) != 0) {
+        if (cuda_get_deviceinfo(&ctx, algo) == 0) {
             continue;
         }
 

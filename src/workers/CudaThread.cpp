@@ -112,7 +112,6 @@ CudaThread::CudaThread(const rapidjson::Value &object) :
 
 bool CudaThread::init(xmrig::Algo algorithm)
 {
-	printf("CudaThread init\n");
     if (m_blocks < -1 || m_threads < -1 || m_bfactor < 0 || m_bsleep < 0) {
         return false;
     }
@@ -120,8 +119,6 @@ bool CudaThread::init(xmrig::Algo algorithm)
     if (cuda_get_devicecount() == 0) {
         return false;
     }
-
-	printf("CudaThread init 2\n");
 	
     nvid_ctx ctx;
     ctx.device_id      = static_cast<int>(m_index);
@@ -134,8 +131,6 @@ bool CudaThread::init(xmrig::Algo algorithm)
     if (cuda_get_deviceinfo(&ctx, algorithm) == 0) {
         return false;
     }
-
-	printf("CudaThread init 3\n");
 	
     memcpy(m_arch, ctx.device_arch, sizeof(m_arch));
     strncpy(m_name, ctx.device_name, sizeof(m_name) - 1);
