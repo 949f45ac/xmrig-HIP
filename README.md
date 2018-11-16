@@ -1,4 +1,5 @@
 **For best performance, please use amdgpu-pro dkms driver.**
+
 **Crank up your sclk (core clock) for fast hashrates! Use threads=32 on Vega to save power!**
 
 # XMRig HIP
@@ -32,30 +33,37 @@ https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-de
 - Reboot
 
 ## Building the miner
-- Install some build deps `sudo apt install cmake libuv1-dev libssl-dev`
-- Clone this repo, `mkdir build`
-- `cd build`
-- `cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF`
-- `make -j4`
-- If it says "file format not recognized" in the end (while linking) just `make` once more
-- Now copy `src/config.json` to your directory, configure pools and either let GPUs be autoconfigured or manually configure them like explained below.
+```bash
+# Install some build deps
+sudo apt install cmake libuv1-dev libssl-dev
+mkdir build
+cd build
+cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF
+
+# First invocation of linker tends to fail
+make -j4 && make -j4
+
+# Copy config template to folder and add pool credentials
+cp ../src/config.json .
+
+# Start miner
+./xmrig-hip
+
+```
 
 ### How do I choose threads and blocks?
-tl;dr
+Miner has autoconfig to do this for you, but here’s some info still:
 
 Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
 
 Use the following threads/blocks depending on card.
-In most cases, you can also use double the threads and half the blocks, in order to become more energy efficient at a minor hashrate cost.
 
 - Vega 56: Threads = 32, Blocks = 112
-- Vega 64: T=32 B=120
-- Vega 16 GB: T=32 B=128
+- Vega 64: T=32 B=120. If you want maximal hashrate: T=16, B=240
+- Vega FE: T=32 B=128, or even more blocks.
 - Polaris _70 or _80: Threads = 8, Blocks: Try 248, 252 for 4 GB, double that for 8 GB.
-- Polaris _50 or _60: Threads = 64, Blocks: CU count
+- Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
 
-Technical note: When mining a Cn7 algorithm (msr or xtl), the miner will automatically use half the
-threads and double the blocks.
 
 Example config:
 
@@ -71,10 +79,10 @@ Example config:
     "retry-pause": 5,
     "syslog": false,
     "threads": [
-        {    // Vega 56 / 64
+        {    // Vega 56
             "index": 0,
-            "threads": 16,
-            "blocks": 224,
+            "threads": 32,
+            "blocks": 112,
             "bfactor": 0,
             "bsleep": 0,
             "sync_mode": 3
@@ -82,7 +90,7 @@ Example config:
         {    // RX 570
             "index": 1,
             "threads": 8,
-            "blocks": 240,
+            "blocks": 248,
             "bfactor": 0,
             "bsleep": 0,
             "sync_mode": 3
@@ -99,24 +107,6 @@ Example config:
     ]
 }
 ```
-
-More detailed explanation:
-
-You want 16 threads on most cards, and a number of blocks that is
-an integer multiple of CU count, and `T x B x 2 < (Memory in MB)`.
-
-E.g.:
-Vega 56 has 56 CU.
-
-56 x 4 = 224
-
-224 x 16 x 2 = 7168
-
-7168 < 8000
-
-
-In some cases taking another 0.5 * CU blocks (like blocks=6.5*CU overall) will increase speed, in
-most cases it will not.
 
 ## If you want to donate to me (949f45ac) who did HIP port + optimization
 * XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
