@@ -423,8 +423,8 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		int blocks_for_sector = d / ctx->device_threads;
 		size_t freeMemory = props.totalGlobalMem;
 
-		size_t memory_95 = (freeMemory * size_t(95)) / 100;
-		size_t memory_70 = (freeMemory * size_t(70)) / 100;
+		size_t memory_97 = (freeMemory * size_t(97)) / 100;
+		size_t memory_85 = (freeMemory * size_t(85)) / 100;
 
 		printf("INFO: %s free memory: %lu.\n", ctx->device_name, freeMemory);
 		printf("INFO: Blocks for sector: %d.\n", blocks_for_sector);
@@ -433,14 +433,10 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		while(true)
 		{
 			int next_size = ctx->device_blocks + blocks_for_sector;
-			printf("INFO: Next size: %d.\n", next_size);
 			size_t nextmem = size_t(next_size) * size_t(ctx->device_threads) * size_t(2u * 1024u * 1024u);
-			printf("INFO: nextmem %lu\n", nextmem);
-			if( nextmem > memory_95 ) {
-				printf("INFO: break 1\n");
+			if( nextmem > memory_97 ) {
 				break;
-			} else if(nextmem > memory_70 && (ctx->device_blocks % ctx->device_mpcount == 0)) {
-				printf("INFO: break 2\n");
+			} else if(nextmem > memory_85 && (ctx->device_blocks % ctx->device_mpcount == 0) && (ctx->device_threads > 8)) {
 				break;
 			} else {
 				ctx->device_blocks = next_size;

@@ -790,15 +790,23 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 
 extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
 {
-#if ONLY_VEGA
-	cryptonight_gpu_hash_shifted<VEGA_SHIFT>(ctx, algo, variant, startNonce);
-#else
+#if __HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__
 	if (ctx->device_mpcount > 50) {
 		cryptonight_gpu_hash_shifted<VEGA_SHIFT>(ctx, algo, variant, startNonce);
-	} else if (ctx->device_mpcount > 22) {
+		return;
+	}
+#endif
+
+#if __HIP_ARCH_GFX803__ || __HIP_ARCH_GFX701__
+	if (ctx->device_mpcount > 22) {
 		cryptonight_gpu_hash_shifted<LARGE_POLARIS_SHIFT>(ctx, algo, variant, startNonce);
-	} else {
+		return;
+	}
+
+	// else
+	{
 		cryptonight_gpu_hash_shifted<SMALL_POLARIS_SHIFT>(ctx, algo, variant, startNonce);
+		return;
 	}
 #endif
 }
