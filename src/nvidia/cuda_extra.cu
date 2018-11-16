@@ -391,23 +391,32 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	ctx->device_arch[1] = props.minor;
 #endif
 
+	int shift, threads_to_set;
+	if (props.multiProcessorCount < 20) {
+		// Small Polaris
+		threads_to_set = 64;
+		shift = SMALL_POLARIS_SHIFT;
+		ctx->autolower = 0;
+	} else if (props.multiProcessorCount < 40) {
+		// Big Polaris
+		threads_to_set = 8;
+		shift = LARGE_POLARIS_SHIFT;
+		ctx->autolower = 1;
+	} else {
+		// Vega
+		threads_to_set = 32;
+		shift = VEGA_SHIFT;
+		ctx->autolower = 0;
+	}
+
 	if(ctx->device_threads == -1)
 	{
-		if (props.multiProcessorCount < 20) {
-			// Small Polaris
-			ctx->device_threads = 64;
-		} else if (props.multiProcessorCount < 40) {
-			// Big Polaris
-			ctx->device_threads = 16;
-		} else {
-			// Vega
-			ctx->device_threads = 32;
-		}
-
+		ctx->device_threads = threads_to_set;
 		printf("INFO: Set %s threads to: %d.\n", ctx->device_name, ctx->device_threads);
 	}
 
-	int d = 1 << (ctx->device_mpcount > 24 ? 8 : 6);
+	printf("INFO: Selected shift: %d.\n", shift);
+	int d = 1 << shift;
 
 	if(ctx->device_blocks == -1)
 	{

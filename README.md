@@ -51,7 +51,7 @@ In most cases, you can also use double the threads and half the blocks, in order
 - Vega 56: Threads = 32, Blocks = 112
 - Vega 64: T=32 B=120
 - Vega 16 GB: T=32 B=128
-- Polaris _70 or _80: Threads = 8, Blocks: Try 216, 224, 240, 252, or double that if the card has 8 GB memory.
+- Polaris _70 or _80: Threads = 8, Blocks: Try 248, 252 for 4 GB, double that for 8 GB.
 - Polaris _50 or _60: Threads = 64, Blocks: CU count
 
 Technical note: When mining a Cn7 algorithm (msr or xtl), the miner will automatically use half the

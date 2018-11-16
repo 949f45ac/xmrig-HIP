@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include "../common/xmrig.h"
 
+#define VEGA_SHIFT (8)
+#define LARGE_POLARIS_SHIFT (3)
+#define SMALL_POLARIS_SHIFT (6)
+
 typedef struct {
 	int device_id;
 	const char *device_name;
@@ -16,6 +20,7 @@ typedef struct {
 	int device_mpcount;
 	int device_blocks;
 	int device_threads;
+	bool autolower;
 	int device_bfactor;
 	int device_bsleep;
 	int device_clockRate;

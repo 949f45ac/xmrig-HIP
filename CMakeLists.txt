@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(xmrig-nvidia)
+project(xmrig-hip)
 
 option(WITH_AEON     "CryptoNight-Lite support" ON)
 option(WITH_SUMO     "CryptoNight-Heavy support" ON)
