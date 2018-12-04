@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include "../common/xmrig.h"
 
-#define VEGA_SHIFT (8)
+#define VEGA_SHIFT (7)
 #define LARGE_POLARIS_SHIFT (3)
 #define SMALL_POLARIS_SHIFT (6)
 
