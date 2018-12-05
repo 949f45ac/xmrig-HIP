@@ -565,12 +565,13 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	for ( i = start; i < end; ++i )
 	{
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
-
 		ulonglong2 chunk1, chunk2, chunk3;
 
-		LOAD_CHUNK(chunk1, j0, 1);
-		LOAD_CHUNK(chunk2, j0, 2);
-		LOAD_CHUNK(chunk3, j0, 3);
+		if (SEC_SHIFT != 6) {
+			LOAD_CHUNK(chunk1, j0, 1);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 3);
+		}
 
 		if (SEC_SHIFT < 8) PRIO(2)
 
@@ -585,6 +586,11 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		c.z = a32[2]  ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
 		c.w = a32[3]  ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
 
+		if (SEC_SHIFT == 6) {
+			LOAD_CHUNK(chunk1, j0, 1);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 3);
+		}
 
 		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j0, v_add(chunk1, d), 2);
