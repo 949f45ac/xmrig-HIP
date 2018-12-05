@@ -127,7 +127,11 @@ __device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict
 	}
 }
 
-#define SEC_SIZE (1 << SEC_SHIFT)
+#define INIT_SHIFT()													\
+	const uint over = SEC_SHIFT == 8 && thread >= ((threads >> SEC_SHIFT) << SEC_SHIFT); \
+	const uint concrete_shift = SEC_SHIFT - over;						\
+	const uint sec_size0 = 1 << SEC_SHIFT;								\
+	const uint sec_size1 = 1 << concrete_shift;							\
 
 #define CHU_SHIFT 4
 #define CHU (1 << CHU_SHIFT)
@@ -138,14 +142,13 @@ __device__ __forceinline__ uint32_t scratch_index(uint64_t offset, int shift) {
 	return local_chunk + (chunk_blob_id << (shift+CHU_SHIFT));
 }
 
-#define SCRATCH_INDEX(offset) scratch_index(offset, SEC_SHIFT)
+#define SCRATCH_INDEX(offset) scratch_index(offset, concrete_shift)
 
+#define BASE_OFF(thread, threads) (thread / sec_size0) * sec_size0 * (MEMORY/16) + (thread % sec_size1) * CHU;
 
 // Number of threads per block to use in phase 1 and 3
 #define P13T 256
 #define ENABLE_LAUNCH_BOUNDS 0
-
-#define BASE_OFF(thread, threads) (thread / SEC_SIZE) * SEC_SIZE * (MEMORY/16) + (thread % SEC_SIZE) * CHU;
 
 template<int SEC_SHIFT>
 #if ENABLE_LAUNCH_BOUNDS
@@ -161,6 +164,8 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 	const uint64_t thread = ( hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x ) >> 3;
 	const int subRaw = ( hipThreadIdx_x & 7 );
 	const int sub = ( hipThreadIdx_x & 7 ) << 2;
+
+	INIT_SHIFT()
 
 	uint4 * const long_state = reinterpret_cast<uint4*>(long_state_64) + BASE_OFF(thread, threads);
 
@@ -277,7 +282,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 
 	if ( thread >= threads )
 		return;
-
+	INIT_SHIFT()
 	int i;
     uint32_t j0, j1;
 	bool same_adr;
@@ -435,6 +440,9 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	int thread = ( hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x ) >> 3;
 	int subRaw = ( hipThreadIdx_x & 7 );
 	int sub = ( hipThreadIdx_x & 7 ) << 2;
+
+	INIT_SHIFT()
+
 	const uint4 * __restrict__ long_state = reinterpret_cast<const uint4*>(long_state_64) + BASE_OFF(thread, threads);
 
 	const int batchsize = (0x80000 >> 2);
@@ -496,7 +504,7 @@ v_xor(ulonglong2 a, ulonglong2 b)
 }
 
 template<int SEC_SHIFT>
-__launch_bounds__( 64 )
+__launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
 {
 	__shared__ uint32_t sharedMemWritable[1024];
@@ -516,6 +524,8 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	if ( thread >= threads )
 		return;
+
+	INIT_SHIFT()
 
 	int i;
     uint32_t j0, j1;
@@ -556,8 +566,15 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	{
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
 
+		ulonglong2 chunk1, chunk2, chunk3;
+
+		LOAD_CHUNK(chunk1, j0, 1);
+		LOAD_CHUNK(chunk2, j0, 2);
+		LOAD_CHUNK(chunk3, j0, 3);
+
+		if (SEC_SHIFT < 8) PRIO(2)
+
 		uint4 c;
-		PRIO(2)
 		uint32_t * a32 = reinterpret_cast<uint32_t*>(&a);
 
 		// cn_aes_single_round(sharedMemory, (uint32_t*) &x32, (uint32_t*) &c, a32);
@@ -568,12 +585,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		c.z = a32[2]  ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
 		c.w = a32[3]  ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
 
-
-		ulonglong2 chunk1, chunk2, chunk3;
-
-		LOAD_CHUNK(chunk1, j0, 1);
-		LOAD_CHUNK(chunk2, j0, 2);
-		LOAD_CHUNK(chunk3, j0, 3);
 
 		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j0, v_add(chunk1, d), 2);
@@ -636,7 +647,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j1, v_add(chunk1, d), 2);
 		STORE_CHUNK(j1, v_add(chunk2, a), 3);
-		PRIO(1)
+
 		// 	SCRATCHPAD_CHUNK(1) = as_uint4(chunk3 + ((ulong2 *)(b_x + 1))[0]);
 		// 	SCRATCHPAD_CHUNK(2) = as_uint4(chunk1 + ((ulong2 *)b_x)[0]);
 		// 	SCRATCHPAD_CHUNK(3) = as_uint4(chunk2 + ((ulong2 *)a)[0]);
@@ -647,11 +658,10 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		// a.y += result_mul.y; // lo
 		// a.x += result_mul.x; // hi
 		long_state[j1] = a;
+		PRIO(0)
 
-		// a.x ^= y2.x;
-		// a.y ^= y2.y;
 		a = v_xor(a, y2);
-		j0 = SCRATCH_INDEX((a.x & 0x1FFFF0 ) >> 4);
+		j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
 
 		d_old = d;
 		d = *reinterpret_cast<ulonglong2*>(&c);
@@ -681,7 +691,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 		block = dim3( ctx->device_threads );
 	}
 
-	
+
 	dim3 block2( ctx->device_threads * 2);
 	dim3 block8( ctx->device_threads << 3 );
 	dim3 block16( ctx->device_threads << 4 );

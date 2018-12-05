@@ -447,10 +447,21 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	int t = ctx->device_threads * ctx->device_blocks;
 	int rest = t % d;
 	if (rest > 0) {
-		int suggested = ctx->device_blocks - (rest / ctx->device_threads);
-		printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Auto-lowering blocks to %d.\n",
-			   t, d, suggested);
-		ctx->device_blocks = suggested;
+		if (shift == 8) {
+			if (rest % (d >> 1) == 0) {
+				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
+					   t, d, d >> 1);
+			} else {
+				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Please at least make sure the remainder is divisible by %d.\n",
+					   t, d, d >> 1);
+				return 0;
+			}
+		} else {
+			int suggested = ctx->device_blocks - (rest / ctx->device_threads);
+			printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Auto-lowering blocks to %d.\n",
+				   t, d, suggested);
+			ctx->device_blocks = suggested;
+		}
 	}
 
 	return 1;

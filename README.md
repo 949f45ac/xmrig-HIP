@@ -59,7 +59,7 @@ Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/
 Use the following threads/blocks depending on card.
 
 - Vega 56: Threads = 32, Blocks = 112
-- Vega 64: T=32 B=120. If you want maximal hashrate: T=16, B=240
+- Vega 64: T=32 B=124. If you want maximal hashrate: T=16, B=248
 - Vega FE: T=32 B=128, or even more blocks.
 - Polaris _70 or _80: Threads = 8, Blocks: Try 248, 252 for 4 GB, double that for 8 GB.
 - Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
