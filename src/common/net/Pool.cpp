@@ -385,7 +385,7 @@ void Pool::rebuild()
     addVariant(xmrig::VARIANT_XTL);
     // addVariant(xmrig::VARIANT_TUBE);
     addVariant(xmrig::VARIANT_MSR);
-    // addVariant(xmrig::VARIANT_XHV);
+    addVariant(xmrig::VARIANT_XHV);
     // addVariant(xmrig::VARIANT_XAO);
     // addVariant(xmrig::VARIANT_RTO);
     addVariant(xmrig::VARIANT_AUTO);

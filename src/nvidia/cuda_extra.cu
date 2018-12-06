@@ -30,6 +30,7 @@ typedef unsigned long long DataLength;
 #include <algorithm>
 #include "cryptonight.h"
 #include "cuda_extra.h"
+#include "cuda_aes.hpp"
 #include "cuda_keccak.hpp"
 #include "cuda_blake.hpp"
 #include "cuda_groestl.hpp"
@@ -92,9 +93,35 @@ __device__ __forceinline__ void cryptonight_aes_set_key( uint32_t * __restrict__
 	}
 }
 
-__global__ void cryptonight_extra_gpu_prepare( int threads, uint32_t * __restrict__ d_input, uint32_t len, uint32_t startNonce, uint32_t * __restrict__ d_ctx_state, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_key1, uint32_t * __restrict__ d_ctx_key2 )
+__device__ __forceinline__ void mix_and_propagate( uint32_t* state )
+{
+    uint32_t tmp0[4];
+    for(size_t x = 0; x < 4; ++x)
+        tmp0[x] = (state)[x];
+
+    // set destination [0,6]
+    for(size_t t = 0; t < 7; ++t)
+        for(size_t x = 0; x < 4; ++x)
+            (state + 4 * t)[x] = (state + 4 * t)[x] ^ (state + 4 * (t + 1))[x];
+
+    // set destination 7
+    for(size_t x = 0; x < 4; ++x)
+        (state + 4 * 7)[x] = (state + 4 * 7)[x] ^ tmp0[x];
+}
+
+template<bool CN_HEAVY>
+__global__ void cryptonight_extra_gpu_prepare( int threads, uint32_t * __restrict__ d_input, uint32_t len, uint32_t startNonce,
+											   uint32_t * __restrict__ d_ctx_state, uint32_t * __restrict__ d_ctx_state_p1,
+											   uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b,
+											   uint32_t * __restrict__ d_ctx_key1, uint32_t * __restrict__ d_ctx_key2 )
 {
 	int thread = ( hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x );
+	__shared__ uint32_t sharedMemory[1024];
+
+	if (CN_HEAVY) {
+        cn_aes_gpu_init( sharedMemory );
+        __syncthreads( );
+    }
 
 	if ( thread >= threads )
 		return;
@@ -121,30 +148,55 @@ __global__ void cryptonight_extra_gpu_prepare( int threads, uint32_t * __restric
 
 
 	memcpy( d_ctx_state + thread * 50, ctx_state, 50 * 4 );
+	memcpy( d_ctx_state_p1 + thread * 50, ctx_state, 50 * 4);
 	memcpy( d_ctx_a + thread * 4, ctx_a, 4 * 4 );
 
-	
+
 
 	memcpy( d_ctx_b + thread * 12, ctx_b, 4 * 4 );
 
-	///// IF v8
+	if (!CN_HEAVY) {
 	// bx1
-	XOR_BLOCKS_DST( ctx_state + 16, ctx_state + 20, ctx_b );
-	memcpy( d_ctx_b + thread * 12 + 4, ctx_b, 4 * 4 );
-	// division_result
-	memcpy( d_ctx_b + thread * 12 + 2 * 4, ctx_state + 24, 4 * 2 );
-	// sqrt_result
-	memcpy( d_ctx_b + thread * 12 + 2 * 4 + 2, ctx_state + 26, 4 * 2 );
+		XOR_BLOCKS_DST( ctx_state + 16, ctx_state + 20, ctx_b );
+		memcpy( d_ctx_b + thread * 12 + 4, ctx_b, 4 * 4 );
+		// division_result
+		memcpy( d_ctx_b + thread * 12 + 2 * 4, ctx_state + 24, 4 * 2 );
+		// sqrt_result
+		memcpy( d_ctx_b + thread * 12 + 2 * 4 + 2, ctx_state + 26, 4 * 2 );
+	}
 	//// endif
 
-	
+
 	memcpy( d_ctx_key1 + thread * 40, ctx_key1, 40 * 4 );
 	memcpy( d_ctx_key2 + thread * 40, ctx_key2, 40 * 4 );
+
+	if (CN_HEAVY) {
+        for (int i = 0; i < 16; i++) {
+            for (size_t t = 4; t < 12; ++t) {
+                cn_aes_pseudo_round_mut(sharedMemory, ctx_state + 4u * t, ctx_key1);
+            }
+            // scipt first 4 * 128bit blocks = 4 * 4 uint32_t values
+            mix_and_propagate(ctx_state + 4 * 4);
+        }
+        // double buffer to move manipulated state into phase1
+        memcpy(d_ctx_state_p1 + thread * 50, ctx_state, 50 * 4);
+	}
 }
 
-__global__ void cryptonight_extra_gpu_final( int threads, uint64_t target, uint32_t* __restrict__ d_res_count, uint32_t * __restrict__ d_res_nonce, uint32_t * __restrict__ d_ctx_state )
+template<bool CN_HEAVY>
+__global__ void cryptonight_extra_gpu_final( int threads, uint64_t target,
+											 uint32_t* __restrict__ d_res_count, uint32_t * __restrict__ d_res_nonce,
+											 uint32_t * __restrict__ d_ctx_state, uint32_t * __restrict__ d_ctx_key2 )
 {
 	const uint32_t thread = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+
+	__shared__ uint32_t sharedMemory[1024];
+
+    if (CN_HEAVY)
+    {
+        cn_aes_gpu_init( sharedMemory );
+        __syncthreads( );
+	}
 
 	if ( thread >= threads )
 		return;
@@ -159,6 +211,23 @@ __global__ void cryptonight_extra_gpu_final( int threads, uint64_t target, uint3
 //#pragma unroll
 	for ( i = 0; i < 50; i++ )
 		state32[i] = ctx_state[i];
+
+	if (CN_HEAVY) {
+        uint32_t key[40];
+
+        // load keys
+        MEMCPY8( key, d_ctx_key2 + thread * 40, 20 );
+
+        for(int i=0; i < 16; i++)
+        {
+            for(size_t t = 4; t < 12; ++t)
+            {
+                cn_aes_pseudo_round_mut( sharedMemory, state32 + 4u * t, key );
+            }
+            // scipt first 4 * 128bit blocks = 4 * 4 uint32_t values
+            mix_and_propagate(state32 + 4 * 4);
+        }
+	}
 
 	cn_keccakf2( state );
 
@@ -202,7 +271,7 @@ extern "C" void cryptonight_extra_cpu_set_data( nvid_ctx* ctx, const void *data,
 	exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 }
 
-extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx)
+extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx, xmrig::Algo algo)
 {
 	hipError_t err;
 	err = hipSetDevice(ctx->device_id);
@@ -222,10 +291,21 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx)
 #endif
 
 	size_t wsize = ctx->device_blocks * ctx->device_threads;
-	hipMalloc(&ctx->d_long_state, (size_t)MEMORY * wsize);
-	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 	hipMalloc(&ctx->d_ctx_state, 50 * sizeof(uint32_t) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
+
+	uint f;
+	if (algo == xmrig::CRYPTONIGHT_HEAVY) {
+		hipMalloc(&ctx->d_ctx_state_p1, 50 * sizeof(uint32_t) * wsize);
+		exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
+		f = 2;
+	} else {
+		ctx->d_ctx_state_p1 = ctx->d_ctx_state;
+		f = 1;
+	}
+	hipMalloc(&ctx->d_long_state, (size_t)MEMORY * wsize * f);
+	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
+
 	hipMalloc(&ctx->d_ctx_key1, 40 * sizeof(uint32_t) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 	hipMalloc(&ctx->d_ctx_key2, 40 * sizeof(uint32_t) * wsize);
@@ -276,7 +356,7 @@ void set_grid_block(nvid_ctx* ctx, dim3 * grid, dim3 * block, int maxthreads) {
 	*block = dim3( threads );
 }
 
-extern "C" void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce)
+extern "C" void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heavy)
 {
 	uint32_t wsize = ctx->device_blocks * ctx->device_threads;
 
@@ -285,13 +365,17 @@ extern "C" void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce
 	dim3 grid, block;
 	set_grid_block(ctx, &grid, &block, 128);
 
-	hipLaunchKernelGGL(cryptonight_extra_gpu_prepare, dim3(grid), dim3(block), 0, 0, wsize, ctx->d_input, ctx->inputlen, startNonce,
-		ctx->d_ctx_state, ctx->d_ctx_a, ctx->d_ctx_b, ctx->d_ctx_key1, ctx->d_ctx_key2);
-
+	if (heavy) {
+		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<true>, dim3(grid), dim3(block), 0, 0, wsize, ctx->d_input, ctx->inputlen, startNonce,
+						   ctx->d_ctx_state, ctx->d_ctx_state_p1, ctx->d_ctx_a, ctx->d_ctx_b, ctx->d_ctx_key1, ctx->d_ctx_key2);
+	} else {
+		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<false>, dim3(grid), dim3(block), 0, 0, wsize, ctx->d_input, ctx->inputlen, startNonce,
+						   ctx->d_ctx_state, ctx->d_ctx_state_p1, ctx->d_ctx_a, ctx->d_ctx_b, ctx->d_ctx_key1, ctx->d_ctx_key2);
+	}
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 }
 
-extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce)
+extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy)
 {
 	uint32_t wsize = ctx->device_blocks * ctx->device_threads;
 	dim3 grid, block;
@@ -302,7 +386,13 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	hipMemset( ctx->d_result_count, 0, sizeof (uint32_t ) );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 
-	hipLaunchKernelGGL(cryptonight_extra_gpu_final, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state);
+	if (heavy) {
+		hipLaunchKernelGGL(cryptonight_extra_gpu_final<true>, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
+	} else {
+		hipLaunchKernelGGL(cryptonight_extra_gpu_final<false>, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
+	}
+
+
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 	hipDeviceSynchronize();
 
@@ -451,6 +541,7 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 			if (rest % (d >> 1) == 0) {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
 					   t, d, d >> 1);
+				ctx->mixed_shift = true;
 			} else {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Please at least make sure the remainder is divisible by %d.\n",
 					   t, d, d >> 1);
@@ -469,5 +560,5 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 
 int cryptonight_gpu_init(nvid_ctx *ctx, xmrig::Algo algo)
 {
-    return cryptonight_extra_cpu_init(ctx); //, algo,  CRYPTONIGHT_MEMORY);
+    return cryptonight_extra_cpu_init(ctx, algo); //  CRYPTONIGHT_MEMORY);
 }

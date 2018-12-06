@@ -7,7 +7,7 @@
 #define N_COLS          4
 #define WPOLY           0x011b
 
-__constant__ uint32_t d_t_fn[1024] =
+static __constant__ uint32_t d_t_fn[1024] =
 {
 	0xa56363c6U, 0x847c7cf8U, 0x997777eeU, 0x8d7b7bf6U,
 	0x0df2f2ffU, 0xbd6b6bd6U, 0xb16f6fdeU, 0x54c5c591U,

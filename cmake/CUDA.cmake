@@ -124,6 +124,7 @@ set(CUDA_SOURCES
     src/nvidia/cuda_skein.hpp
     src/nvidia/cuda_core.cu
     src/nvidia/cuda_extra.cu
+	src/nvidia/phase2.cu
 )
 
 if("${CUDA_COMPILER}" STREQUAL "clang")

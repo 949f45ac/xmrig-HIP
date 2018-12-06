@@ -1,6 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#define OCML_BASIC_ROUNDED_OPERATIONS 1
+#include <hip/hip_runtime.h>
+#include <hip/hcc_detail/math_functions.h>
 
 static __constant__ const uint32_t RCP_C[256] =
 {
@@ -135,4 +138,41 @@ __device__ __forceinline__ uint32_t fast_sqrt_v2(const uint64_t n1)
 	if ((int64_t)(x2 + 0x100000000UL + s) < 0) ++result;
 
 	return result;
+}
+
+__device__ __forceinline__ int64_t fast_div_heavy(int64_t _a, int32_t _b)
+{
+	int64_t a = abs(_a);
+	int32_t b = abs(_b);
+
+	float b_float = __int2float_rn(b);
+	float rcp;
+#ifdef __HCC__
+	asm("V_RCP_F32 %0, %1\n\t" : "=v"(rcp) : "v"(b_float));
+#else
+	asm("rcp.approx.f32 %0, %1;" : "=f"(rcp) : "f"(b_float));
+#endif
+
+	float rcp2 = __uint_as_float(__float_as_uint(rcp) + (32U << 23));
+
+	uint32_t a_hi = reinterpret_cast<int2*>(&a)->y;
+	uint64_t q1 = __float2ull_rn(
+		__int2float_rn(a_hi) * rcp2);
+
+	a -= q1 * *reinterpret_cast<uint32_t*>(&b);
+
+	uint32_t a_lo = (uint32_t) (a >> 12);
+	
+	float q2f = __int2float_rn(a_lo) * rcp;
+	q2f = __uint_as_float(__float_as_uint(q2f) + (12U << 23));
+
+	int64_t q2 = __float2ll_rn(q2f);
+	int32_t a2 = ((int32_t) a) - ((int32_t) q2) * b;
+
+	int32_t q3 = __float2int_rn(__int2float_rn(a2) * rcp);
+	q3 += (a2 - q3 * b) >> 31;
+
+	int32_t _a_hi = reinterpret_cast<int2*>(&_a)->y;
+	const int64_t q = q1 + q2 + q3;
+	return ((_a_hi ^ _b) < 0) ? -q : q;
 }

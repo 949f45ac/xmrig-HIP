@@ -1,4 +1,4 @@
-#include <hip/hip_runtime.h>
+// #include <hip/hip_runtime.h>
 #pragma once
 
 #ifdef __INTELLISENSE__
@@ -104,3 +104,72 @@ __forceinline__ __device__ uint64_t cuda_ROTL64(const uint64_t value, const int 
 
 #define E2I(x) ((size_t)(((*((uint64_t*)(x)) >> 4) & 0x1ffff)))
 
+
+// ASM required to wedge operations on variables loaded from memory into the correct spot.
+#ifdef __HCC__
+#define RETIRE(x)  { \
+        uint32_t * const w = reinterpret_cast<uint32_t*const>(&x); \
+        asm volatile("v_mov_b32 %0, %1" : "=v" (w[0]), "=v" (w[1]) : "v" (w[0]), "v" (w[1]) : "memory"); }
+
+#define FENCE(x) { \
+	uint32_t * const w = reinterpret_cast<uint32_t*const>(&x); \
+	asm volatile("v_mov_b32 %0, %2\n\tv_mov_b32 %1, %3" : "=v" (w[0]), "=v" (w[1]) : "v" (w[0]), "v" (w[1]) : "memory"); }
+
+#define FENCE32(x) asm volatile("v_mov_b32 %0, %1\n\t" : "=v" (x) : "v" (x) : "memory");
+
+#define WAIT_FOR(x, n) asm volatile("s_waitcnt vmcnt(" #n ")\n\t": : "v" (x) : "memory"); FENCE(x)
+#define PRIO(n) asm volatile ("s_setprio 0x" #n ::: "memory");
+#else
+#define WAIT_FOR(x, n) FENCE(x)
+#define RETIRE(x) ;
+#define PRIO(n) ;
+#define FENCE(w) { \
+	asm volatile("mov.u64 %0, %1;\n\t" : "=l" (w) : "l" (w) : "memory"); }
+
+#define FENCE32(w) { \
+	asm volatile("mov.u32 %0, %1;\n\t" : "=l" (w) : "l" (w) : "memory"); }
+//	uint32_t * const w = reinterpret_cast<uint32_t*const>(&x); \
+//	asm volatile("mov.u32 %0, %2;\n\tmov.u32 %1, %3;" : "=r" (w[0]), "=r" (w[1]) : "r" (w[0]), "r" (w[1]) : "memory"); }
+#endif
+
+
+#if !__HIP_ARCH_GFX803__
+#define EMIT_LOAD(args) "global_load_dwordx2 " args ", off"
+#define EMIT_STORE(args) "global_store_dwordx4 " args ", off"
+#else
+#define EMIT_LOAD(args) "flat_load_dwordx2 " args
+#define EMIT_STORE(args) "flat_store_dwordx4 " args
+#endif
+
+
+template<int N>
+__device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict__ src) {
+	ulonglong2 * lDst = reinterpret_cast<ulonglong2*>(dst);
+	ulonglong2 * lSrc = reinterpret_cast<ulonglong2*>(src);
+	#pragma unroll
+	for (int i = 0; i < N; i++) {
+		lDst[i] = lSrc[i];
+	}
+}
+
+#define INIT_SHIFT()													\
+	const uint over = MIXED_SHIFT && thread >= ((threads >> SEC_SHIFT) << SEC_SHIFT); \
+	const uint concrete_shift = SEC_SHIFT - over;						\
+	const uint sec_size0 = 1 << SEC_SHIFT;								\
+	const uint sec_size1 = 1 << concrete_shift;							\
+
+#define CHU_SHIFT 4
+#define CHU (1 << CHU_SHIFT)
+__device__ __forceinline__ uint32_t scratch_index(uint64_t offset, int shift) {
+	uint32_t chunk_blob_id = offset / CHU;
+	int local_chunk = offset % CHU;
+
+	return local_chunk + (chunk_blob_id << (shift+CHU_SHIFT));
+}
+
+#define SCRATCH_INDEX(offset) scratch_index(offset, concrete_shift)
+
+#define HEAVY (VARIANT == xmrig::VARIANT_XHV)
+#define ALGOMEM (HEAVY ? (MEMORY/8) : (MEMORY/16))
+
+#define BASE_OFF(thread, threads) (thread / sec_size0) * sec_size0 * ALGOMEM + (thread % sec_size1) * CHU;

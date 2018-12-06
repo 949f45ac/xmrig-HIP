@@ -21,6 +21,7 @@ typedef struct {
 	int device_blocks;
 	int device_threads;
 	bool autolower;
+	bool mixed_shift;
 	int device_bfactor;
 	int device_bsleep;
 	int device_clockRate;
@@ -36,6 +37,7 @@ typedef struct {
 	uint32_t *d_result_nonce;
 	uint64_t *d_long_state;
 	uint32_t *d_ctx_state;
+	uint32_t *d_ctx_state_p1;
 	uint32_t *d_ctx_a;
 	uint32_t *d_ctx_b;
 	uint32_t *d_ctx_key1;
@@ -53,12 +55,11 @@ extern "C" {
 int cuda_get_devicecount();
 int cuda_get_deviceinfo(nvid_ctx *ctx, xmrig::Algo algo);
 int cryptonight_gpu_init(nvid_ctx *ctx, xmrig::Algo algo);
-int cryptonight_extra_cpu_init(nvid_ctx *ctx);
+/* int cryptonight_extra_cpu_init(nvid_ctx *ctx); */
 void cryptonight_extra_cpu_set_data(nvid_ctx* ctx, const void *data, uint32_t len);
-void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce);
+void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heavy);
 //void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t startNonce);
 void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
-void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce);
-
+void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy);
 }
 
