@@ -154,7 +154,7 @@ __device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict
 
 #define INIT_SHIFT()													\
 	const uint over = MIXED_SHIFT && thread >= ((threads >> SEC_SHIFT) << SEC_SHIFT); \
-	const uint concrete_shift = SEC_SHIFT - over;						\
+	const uint concrete_shift = SEC_SHIFT - MIXED_SHIFT_DOWNDRAFT*over;	\
 	const uint sec_size0 = 1 << SEC_SHIFT;								\
 	const uint sec_size1 = 1 << concrete_shift;							\
 

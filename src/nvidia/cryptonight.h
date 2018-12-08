@@ -13,6 +13,8 @@
 #define LARGE_POLARIS_SHIFT (3)
 #define SMALL_POLARIS_SHIFT (6)
 
+#define MIXED_SHIFT_DOWNDRAFT (3)
+
 typedef struct {
 	int device_id;
 	const char *device_name;
@@ -29,8 +31,10 @@ typedef struct {
     uint32_t device_pciBusID;
     uint32_t device_pciDeviceID;
     uint32_t device_pciDomainID;
-    uint32_t syncMode;           
-	
+    uint32_t syncMode;
+
+	hipStream_t * stream;
+
 	uint32_t *d_input;
 	uint32_t inputlen;
 	uint32_t *d_result_count;
@@ -62,4 +66,3 @@ void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heav
 void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
 void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy);
 }
-

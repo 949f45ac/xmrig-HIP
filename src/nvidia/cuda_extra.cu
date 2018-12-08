@@ -267,7 +267,7 @@ __global__ void cryptonight_extra_gpu_final( int threads, uint64_t target,
 extern "C" void cryptonight_extra_cpu_set_data( nvid_ctx* ctx, const void *data, uint32_t len )
 {
 	ctx->inputlen = len;
-	hipMemcpy( ctx->d_input, data, len, hipMemcpyHostToDevice );
+	hipMemcpyAsync( ctx->d_input, data, len, hipMemcpyHostToDevice, *ctx->stream );
 	exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 }
 
@@ -283,12 +283,15 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx, xmrig::Algo algo)
 
 	//hipDeviceReset();
 #ifdef __HCC__
-	hipSetDeviceFlags(hipDeviceScheduleBlockingSync);
+	hipSetDeviceFlags(hipDeviceScheduleSpin);
 	hipDeviceSetCacheConfig(hipFuncCachePreferL1);
 #else
 	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 #endif
+
+	ctx->stream = new hipStream_t;
+	hipStreamCreate(ctx->stream);
 
 	size_t wsize = ctx->device_blocks * ctx->device_threads;
 	hipMalloc(&ctx->d_ctx_state, 50 * sizeof(uint32_t) * wsize);
@@ -366,10 +369,10 @@ extern "C" void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce
 	set_grid_block(ctx, &grid, &block, 128);
 
 	if (heavy) {
-		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<true>, dim3(grid), dim3(block), 0, 0, wsize, ctx->d_input, ctx->inputlen, startNonce,
+		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<true>, dim3(grid), dim3(block), 0, *ctx->stream, wsize, ctx->d_input, ctx->inputlen, startNonce,
 						   ctx->d_ctx_state, ctx->d_ctx_state_p1, ctx->d_ctx_a, ctx->d_ctx_b, ctx->d_ctx_key1, ctx->d_ctx_key2);
 	} else {
-		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<false>, dim3(grid), dim3(block), 0, 0, wsize, ctx->d_input, ctx->inputlen, startNonce,
+		hipLaunchKernelGGL(cryptonight_extra_gpu_prepare<false>, dim3(grid), dim3(block), 0, *ctx->stream, wsize, ctx->d_input, ctx->inputlen, startNonce,
 						   ctx->d_ctx_state, ctx->d_ctx_state_p1, ctx->d_ctx_a, ctx->d_ctx_b, ctx->d_ctx_key1, ctx->d_ctx_key2);
 	}
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
@@ -381,24 +384,22 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	dim3 grid, block;
 	set_grid_block(ctx, &grid, &block, 256);
 
-	hipMemset( ctx->d_result_nonce, 0xFF, 10 * sizeof (uint32_t ) );
+	hipMemsetAsync( ctx->d_result_nonce, 0xFF, 10 * sizeof (uint32_t ), *ctx->stream );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-	hipMemset( ctx->d_result_count, 0, sizeof (uint32_t ) );
+	hipMemsetAsync( ctx->d_result_count, 0, sizeof (uint32_t ), *ctx->stream );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 
 	if (heavy) {
-		hipLaunchKernelGGL(cryptonight_extra_gpu_final<true>, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
+		hipLaunchKernelGGL(cryptonight_extra_gpu_final<true>, dim3(grid), dim3(block), 0, *ctx->stream, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
 	} else {
-		hipLaunchKernelGGL(cryptonight_extra_gpu_final<false>, dim3(grid), dim3(block), 0, 0, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
+		hipLaunchKernelGGL(cryptonight_extra_gpu_final<false>, dim3(grid), dim3(block), 0, *ctx->stream, wsize, target, ctx->d_result_count, ctx->d_result_nonce, ctx->d_ctx_state, ctx->d_ctx_key2);
 	}
 
-
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-	hipDeviceSynchronize();
 
-	hipMemcpy( rescount, ctx->d_result_count, sizeof (uint32_t ), hipMemcpyDeviceToHost );
+	hipMemcpyAsync( rescount, ctx->d_result_count, sizeof (uint32_t ), hipMemcpyDeviceToHost, *ctx->stream );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
-	hipMemcpy( resnonce, ctx->d_result_nonce, 10 * sizeof (uint32_t ), hipMemcpyDeviceToHost );
+	hipMemcpyAsync( resnonce, ctx->d_result_nonce, 10 * sizeof (uint32_t ), hipMemcpyDeviceToHost, *ctx->stream );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 #if DEBUG
 	printf ("Run for startnonce %d with target %016lX over.\n", startNonce, target);
@@ -537,14 +538,15 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	int t = ctx->device_threads * ctx->device_blocks;
 	int rest = t % d;
 	if (rest > 0) {
+		uint other_shift = d >> MIXED_SHIFT_DOWNDRAFT;
 		if (shift == 8) {
-			if (rest % (d >> 1) == 0) {
+			if (rest % other_shift == 0) {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
-					   t, d, d >> 1);
+					   t, d,  other_shift);
 				ctx->mixed_shift = true;
 			} else {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Please at least make sure the remainder is divisible by %d.\n",
-					   t, d, d >> 1);
+					   t, d,  other_shift);
 				return 0;
 			}
 		} else {
