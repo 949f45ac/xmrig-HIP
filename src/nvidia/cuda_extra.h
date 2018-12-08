@@ -153,8 +153,8 @@ __device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict
 }
 
 #define INIT_SHIFT()													\
-	const uint nshift_limit = ((threads >> SEC_SHIFT) << SEC_SHIFT);	\
-	const bool over = MIXED_SHIFT && thread >= nshift_limit;			\
+	const uint nshift_limit = (threads >> SEC_SHIFT) << MIXED_SHIFT_DOWNDRAFT; \
+	const bool over = MIXED_SHIFT && hipBlockIdx_x >= nshift_limit;		\
 	const uint concrete_shift = SEC_SHIFT - (over ? MIXED_SHIFT_DOWNDRAFT : 0); \
 	const uint sec_size0 = 1 << SEC_SHIFT;								\
 	const uint sec_size1 = 1 << concrete_shift;							\
@@ -173,4 +173,4 @@ __device__ __forceinline__ uint32_t scratch_index(uint64_t offset, int shift) {
 #define HEAVY (VARIANT == xmrig::VARIANT_XHV)
 #define ALGOMEM (HEAVY ? (MEMORY/8) : (MEMORY/16))
 
-#define BASE_OFF(thread, threads) (thread / sec_size0) * sec_size0 * ALGOMEM + over * ((thread-nshift_limit) / sec_size1) * sec_size1 * ALGOMEM + (thread % sec_size1) * CHU;
+#define BASE_OFF(thread, threads) (thread / sec_size0) * sec_size0 * ALGOMEM + over * ((thread-1792) / sec_size1) * sec_size1 * ALGOMEM + (thread % sec_size1) * CHU;
