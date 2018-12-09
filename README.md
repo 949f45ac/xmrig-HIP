@@ -52,16 +52,16 @@ cp ../src/config.json .
 ```
 
 ### How do I choose threads and blocks?
-Miner has autoconfig to do this for you, but here’s some info still:
+Miner has autoconfig to do this for you, but here’s how to reach even higher hashrate:
 
 Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
 
 Use the following threads/blocks depending on card.
 
-- Vega 56: Threads = 32, Blocks = 112
-- Vega 64: T=32 B=124. If you want maximal hashrate: T=16, B=248
-- Vega FE: T=32 B=128, or even more blocks.
-- Polaris _70 or _80: Threads = 8, Blocks: Try 248, 252 for 4 GB, double that for 8 GB.
+- Vega 56: Two threads, each with: Threads = 32, Blocks = 56
+- Vega 64: Two threads, each with Threads = 32, First Blocks = 64, Second Blocks = 60
+- Vega FE: Similar to Vega 64, but use 64+64 as blocks.
+- Polaris _70 or _80: Two threads, each with Threads = 8, Blocks: Try 124, 126 for 4 GB, double that for 8 GB.
 - Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
 
 
@@ -79,18 +79,19 @@ Example config:
     "retry-pause": 5,
     "syslog": false,
     "threads": [
-        {    // Vega 56
+        // Vega dual threads
+        {
             "index": 0,
             "threads": 32,
-            "blocks": 112,
+            "blocks": 64,
             "bfactor": 0,
             "bsleep": 0,
             "sync_mode": 3
         },
-        {    // RX 570
-            "index": 1,
-            "threads": 8,
-            "blocks": 248,
+        {
+            "index": 0,
+            "threads": 32,
+            "blocks": 60,
             "bfactor": 0,
             "bsleep": 0,
             "sync_mode": 3
