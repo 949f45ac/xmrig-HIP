@@ -108,7 +108,7 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 	const int subRaw = ( hipThreadIdx_x & 7 );
 	const int sub = ( hipThreadIdx_x & 7 ) << 2;
 
-	INIT_SHIFT()
+	INIT_SHIFT(3)
 
 	uint4 * const long_state = reinterpret_cast<uint4*>(long_state_64) + BASE_OFF(thread, threads);
 
@@ -155,7 +155,7 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	int subRaw = ( hipThreadIdx_x & 7 );
 	int sub = ( hipThreadIdx_x & 7 ) << 2;
 
-	INIT_SHIFT()
+	INIT_SHIFT(3)
 
 	const uint4 * __restrict__ long_state = reinterpret_cast<const uint4*>(long_state_64) + BASE_OFF(thread, threads);
 

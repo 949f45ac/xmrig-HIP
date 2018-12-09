@@ -539,7 +539,7 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	int rest = t % d;
 	if (rest > 0) {
 		uint other_shift = d >> MIXED_SHIFT_DOWNDRAFT;
-		if (shift == 8) {
+		if (shift == VEGA_SHIFT) {
 			if (rest % other_shift == 0) {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
 					   t, d,  other_shift);

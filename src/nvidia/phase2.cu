@@ -101,7 +101,8 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 
 	if ( thread >= threads )
 		return;
-	INIT_SHIFT()
+
+	INIT_SHIFT(0)
 	int i;
     uint32_t j0, j1;
 	bool same_adr;
@@ -267,7 +268,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 	if ( thread >= threads )
 		return;
 
-	INIT_SHIFT()
+	INIT_SHIFT(0)
 
 	int i;
     uint32_t j0, j1;
@@ -490,7 +491,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	if ( thread >= threads )
 		return;
 
-	INIT_SHIFT()
+	INIT_SHIFT(0)
 
 	int i;
     uint32_t j0, j1;
