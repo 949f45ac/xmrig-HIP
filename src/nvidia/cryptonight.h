@@ -33,7 +33,10 @@ typedef struct {
     uint32_t device_pciDomainID;
     uint32_t syncMode;
 
-	hipStream_t * stream;
+	size_t overall_wsize_on_card = 0;
+	size_t w_off = 0;
+
+	hipStream_t stream;
 
 	uint32_t *d_input;
 	uint32_t inputlen;
@@ -60,6 +63,7 @@ int cuda_get_devicecount();
 int cuda_get_deviceinfo(nvid_ctx *ctx, xmrig::Algo algo);
 int cryptonight_gpu_init(nvid_ctx *ctx, xmrig::Algo algo);
 /* int cryptonight_extra_cpu_init(nvid_ctx *ctx); */
+int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx);
 void cryptonight_extra_cpu_set_data(nvid_ctx* ctx, const void *data, uint32_t len);
 void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heavy);
 //void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t startNonce);

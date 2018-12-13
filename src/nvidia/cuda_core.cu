@@ -8,6 +8,8 @@
 #include <vector_functions.h>
 #endif
 
+#include <sys/time.h>
+
 #ifdef _WIN32
 #include <windows.h>
 extern "C" void compat_usleep(uint64_t waitTime)
@@ -219,6 +221,12 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 		block = dim3( ctx->device_threads );
 	}
 
+#if DEBUG
+	timespec timespecc;
+	clock_gettime(CLOCK_REALTIME, &timespecc);
+
+	LOG_DEBUG("Nonce %d P2 Schedule start at %ld \n", nonce, timespecc.tv_nsec);
+#endif
 
 	dim3 block2( ctx->device_threads * 2);
 	dim3 block8( ctx->device_threads << 3 );
@@ -242,7 +250,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 	for ( int i = 0; i < partcountOneThree; i++ )
 	{
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, *ctx->stream, ctx->device_blocks*ctx->device_threads,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 			// ctx->device_shift, i,
 			ctx->d_long_state, ctx->d_ctx_state_p1, ctx->d_ctx_key1);
 		exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
@@ -259,7 +267,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 		if (VARIANT == xmrig::VARIANT_2) {
 			hipLaunchKernelGGL(cryptonight_core_gpu_phase2_monero_v8<MIXED_SHIFT, SEC_SHIFT>,
-							   dim3(grid), dim3(block), 0, *ctx->stream, ctx->device_blocks*ctx->device_threads,
+							   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 							   // ctx->device_shift,
 							   // i,
 							   ctx->d_long_state,
@@ -268,7 +276,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 		} else if (HEAVY) {
 			hipLaunchKernelGGL(cryptonight_core_gpu_phase2_heavy<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
-							   dim3(grid), dim3(block), 0, *ctx->stream, ctx->device_blocks*ctx->device_threads,
+							   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 							   // ctx->device_shift,
 							   // i,
 							   ctx->d_long_state,
@@ -277,7 +285,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 		} else {
 			hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
-							   dim3(grid), dim3(block), 0, *ctx->stream, ctx->device_blocks*ctx->device_threads,
+							   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 							   // ctx->device_shift,
 							   // i,
 							   ctx->d_long_state,
@@ -292,7 +300,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 
 	for ( int i = 0; i < (HEAVY + 1); i++ )
 	{
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, *ctx->stream, ctx->device_blocks*ctx->device_threads,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 			// ctx->device_shift, i,
 			ctx->d_long_state,
 			ctx->d_ctx_state, ctx->d_ctx_key2);

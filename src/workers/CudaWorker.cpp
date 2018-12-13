@@ -24,7 +24,7 @@
 
 
 #include <thread>
-
+#include <sys/time.h>
 
 #include "common/log/Log.h"
 #include "common/Platform.h"
@@ -39,6 +39,7 @@ CudaWorker::CudaWorker(Handle *handle) :
     m_id(handle->threadId()),
     m_threads(handle->totalWays()),
     m_algorithm(handle->config()->algorithm()),
+	m_ctx(handle->base_ctx()),
     m_hashCount(0),
     m_timestamp(0),
     m_count(0),
@@ -62,10 +63,27 @@ CudaWorker::CudaWorker(Handle *handle) :
 
 void CudaWorker::start()
 {
-    if (cuda_get_deviceinfo(&m_ctx, m_algorithm) == 0 || cryptonight_gpu_init(&m_ctx, m_algorithm) != 1) {
+#if DEBUG
+	timespec timespecc;
+	clock_gettime(CLOCK_REALTIME, &timespecc);
+
+	LOG_DEBUG("Id %ld init start at %ld \n", m_id, timespecc.tv_nsec);
+#endif
+
+	int sleep_for = m_ctx.w_off / 4;
+	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for));
+
+    if (cuda_get_deviceinfo(&m_ctx, m_algorithm) == 0 || cryptonight_extra_cpu_set_gpu(&m_ctx) != 1) {
         LOG_ERR("Setup failed for GPU %zu. Exitting.", m_id);
         return;
     }
+
+#if DEBUG
+	clock_gettime(CLOCK_REALTIME, &timespecc);
+	LOG_DEBUG("Id %ld init finish at %ld \n", m_id, timespecc.tv_nsec);
+#endif
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for/2));
 
     while (Workers::sequence() > 0) {
         if (Workers::isPaused()) {
@@ -81,12 +99,16 @@ void CudaWorker::start()
             consumeJob();
         }
 
+#if DEBUG
+		clock_gettime(CLOCK_REALTIME, &timespecc);
+		LOG_DEBUG("Id %ld set data at %ld \n", m_id, timespecc.tv_nsec);
+#endif
         cryptonight_extra_cpu_set_data(&m_ctx, m_blob, m_job.size());
 
         while (!Workers::isOutdated(m_sequence)) {
             uint32_t foundNonce[10];
             uint32_t foundCount;
-  
+
             cryptonight_extra_cpu_prepare(&m_ctx, m_nonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);
             cryptonight_gpu_hash(&m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
             cryptonight_extra_cpu_final(&m_ctx, m_nonce, m_job.target(), &foundCount, foundNonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);

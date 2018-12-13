@@ -41,6 +41,8 @@
 #include "workers/Hashrate.h"
 #include "workers/Workers.h"
 
+#include "nvidia/cryptonight.h"
+
 
 bool Workers::m_active = false;
 bool Workers::m_enabled = true;
@@ -224,24 +226,48 @@ bool Workers::start(xmrig::Controller *controller)
     uv_rwlock_init(&m_rwlock);
     uv_async_init(uv_default_loop(), &m_async, Workers::onResult);
     uv_timer_init(uv_default_loop(), &m_timer);
-    uv_timer_start(&m_timer, Workers::onTick, 500, 500);
 
     uint32_t offset = 0;
 
+	xmrig::Algo algo = threads.at(0)->algorithm();
+
+	const size_t max_cards = 32;
+	nvid_ctx bases[max_cards];
+
+	for (xmrig::IThread *thread_g : threads) {
+		CudaThread *thread = static_cast<CudaThread *>(thread_g);
+		int device_id = static_cast<int>(thread->index());
+		nvid_ctx* base_ctx = bases + device_id;
+		base_ctx->device_id = device_id;
+		base_ctx->overall_wsize_on_card += thread->blocks() * thread->threads();
+	}
+
+	for (int i = 0; i < max_cards; i++) {
+		if (bases[i].overall_wsize_on_card > 0) {
+			cryptonight_gpu_init(bases+i, algo);
+		}
+	}
+
     size_t i = 0;
-    for (xmrig::IThread *thread : threads) {
-        Handle *handle = new Handle(i, thread, offset, ways);
+    for (xmrig::IThread *thread_g : threads) {
+		CudaThread *thread = static_cast<CudaThread *>(thread_g);
+		int device_id = thread->index();
+
+        Handle *handle = new Handle(i, thread, offset, ways, bases[device_id]);
         offset += static_cast<size_t>(thread->multiway());
         i++;
 
         m_workers.push_back(handle);
         handle->start(Workers::onReady);
-		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+		bases[device_id].w_off += thread->blocks() * thread->threads();
     }
 
     if (controller->config()->isShouldSave()) {
         controller->config()->save();
     }
+
+	uv_timer_start(&m_timer, Workers::onTick, 500, 500);
 
     return true;
 }

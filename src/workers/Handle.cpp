@@ -25,12 +25,13 @@
 #include "workers/Handle.h"
 
 
-Handle::Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays) :
+Handle::Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays, nvid_ctx base_ctx) :
     m_worker(nullptr),
     m_threadId(threadId),
     m_totalWays(totalWays),
     m_offset(offset),
-    m_config(config)
+    m_config(config),
+	m_base_ctx(base_ctx)
 {
 }
 

@@ -28,7 +28,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <uv.h>
-
+#include "nvidia/cryptonight.h"
 
 #include "interfaces/IThread.h"
 
@@ -39,7 +39,7 @@ class IWorker;
 class Handle
 {
 public:
-    Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays);
+    Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays, nvid_ctx base_ctx);
     void join();
     void start(void (*callback) (void *));
 
@@ -49,6 +49,7 @@ public:
     inline uint32_t offset() const         { return m_offset; }
     inline void setWorker(IWorker *worker) { assert(worker != nullptr); m_worker = worker; }
     inline xmrig::IThread *config() const  { return m_config; }
+	inline nvid_ctx base_ctx() const       { return m_base_ctx; }
 
 private:
     IWorker *m_worker;
@@ -57,6 +58,7 @@ private:
     uint32_t m_offset;
     uv_thread_t m_thread;
     xmrig::IThread *m_config;
+	nvid_ctx m_base_ctx;
 };
 
 
