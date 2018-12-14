@@ -225,7 +225,7 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 	timespec timespecc;
 	clock_gettime(CLOCK_REALTIME, &timespecc);
 
-	LOG_DEBUG("Nonce %d P2 Schedule start at %ld \n", nonce, timespecc.tv_nsec);
+	printf("Nonce %d P2 Schedule start at %ld \n", nonce, timespecc.tv_nsec);
 #endif
 
 	dim3 block2( ctx->device_threads * 2);

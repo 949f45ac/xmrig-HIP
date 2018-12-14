@@ -288,7 +288,7 @@ extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx)
    timespec timespecc;
    clock_gettime(CLOCK_REALTIME, &timespecc);
 
-   LOG_DEBUG("Set GPU at %ld \n", timespecc.tv_nsec);
+   printf("Set GPU at %ld \n", timespecc.tv_nsec);
 #endif
 
    hipMalloc(&ctx->d_input, 21 * sizeof (uint32_t ) );
@@ -402,7 +402,7 @@ extern "C" void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce
 	timespec timespecc;
 	clock_gettime(CLOCK_REALTIME, &timespecc);
 
-	LOG_DEBUG("Nonce %d Round schedule start at %ld \n", startNonce, timespecc.tv_nsec);
+	printf("Nonce %d Round schedule start at %ld \n", startNonce, timespecc.tv_nsec);
 #endif
 
 	uint32_t wsize = ctx->device_blocks * ctx->device_threads;
@@ -553,7 +553,9 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		printf("INFO: Set %s threads to: %d.\n", ctx->device_name, ctx->device_threads);
 	}
 
+#if DEBUG
 	printf("INFO: Selected shift: %d.\n", shift);
+#endif
 	int d = 1 << shift;
 
 	if(ctx->device_blocks == -1)
@@ -564,8 +566,10 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		size_t memory_97 = (freeMemory * size_t(97)) / 100;
 		size_t memory_85 = (freeMemory * size_t(85)) / 100;
 
+#if DEBUG
 		printf("INFO: %s free memory: %lu.\n", ctx->device_name, freeMemory);
 		printf("INFO: Blocks for sector: %d.\n", blocks_for_sector);
+#endif
 
 		ctx->device_blocks = 0;
 		while(true)
@@ -588,8 +592,10 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		uint other_shift = d >> MIXED_SHIFT_DOWNDRAFT;
 		if (shift == VEGA_SHIFT) {
 			if (rest % other_shift == 0) {
+#if DEBUG
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
 					   t, d,  other_shift);
+#endif
 				ctx->mixed_shift = true;
 			} else {
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Please at least make sure the remainder is divisible by %d.\n",
