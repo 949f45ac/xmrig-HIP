@@ -203,7 +203,7 @@ template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid, block;
-	if (VARIANT != xmrig::VARIANT_2 && ctx->autolower && ctx->device_threads > 4) {
+	if (false) { // VARIANT != xmrig::VARIANT_2 && ctx->autolower && ctx->device_threads > 4) {
 		grid = dim3( ctx->device_blocks << 1 );
 		block = dim3( ctx->device_threads >> 1);
 	} else if (false) { // round blocks up

@@ -63,6 +63,10 @@ CudaWorker::CudaWorker(Handle *handle) :
 
 void CudaWorker::start()
 {
+	if (cuda_get_deviceinfo(&m_ctx, m_algorithm) == 0) {
+		LOG_ERR("Get deviceinfo failed for GPU %zu. Exitting.", m_id);
+	}
+
 #if DEBUG
 	timespec timespecc;
 	clock_gettime(CLOCK_REALTIME, &timespecc);
@@ -70,7 +74,9 @@ void CudaWorker::start()
 	LOG_DEBUG("Id %ld init start at %ld \n", m_id, timespecc.tv_nsec);
 #endif
 
-	int sleep_for = m_ctx.w_off / 4;
+	// Vega dual workloads need to start at slightly different times.
+	// Meanwhile on Polaris, they need to start at the same time!
+	int sleep_for = m_ctx.is_vega * (m_ctx.w_off / 4);
 	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for));
 
     if (cuda_get_deviceinfo(&m_ctx, m_algorithm) == 0 || cryptonight_extra_cpu_set_gpu(&m_ctx) != 1) {
@@ -95,6 +101,9 @@ void CudaWorker::start()
             if (Workers::sequence() == 0) {
                 break;
             }
+
+			// Desync threads again.
+			std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for/2));
 
             consumeJob();
         }

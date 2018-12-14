@@ -534,17 +534,17 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		// Small Polaris
 		threads_to_set = 64;
 		shift = SMALL_POLARIS_SHIFT;
-		ctx->autolower = 0;
+		ctx->is_vega = 0;
 	} else if (props.multiProcessorCount < 40) {
 		// Big Polaris
 		threads_to_set = 8;
 		shift = LARGE_POLARIS_SHIFT;
-		ctx->autolower = 1;
+		ctx->is_vega = 0;
 	} else {
 		// Vega
 		threads_to_set = 32;
 		shift = VEGA_SHIFT;
-		ctx->autolower = 0;
+		ctx->is_vega = 1;
 	}
 
 	if(ctx->device_threads == -1)

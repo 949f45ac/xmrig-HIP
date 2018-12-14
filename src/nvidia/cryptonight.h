@@ -22,7 +22,7 @@ typedef struct {
 	int device_mpcount;
 	int device_blocks;
 	int device_threads;
-	bool autolower;
+	bool is_vega;
 	bool mixed_shift;
 	int device_bfactor;
 	int device_bsleep;
