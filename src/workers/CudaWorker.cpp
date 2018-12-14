@@ -79,7 +79,7 @@ void CudaWorker::start()
 	int sleep_for = m_ctx.is_vega * (m_ctx.w_off / 4);
 	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for));
 
-    if (cryptonight_extra_cpu_set_gpu(&m_ctx) != 1) {
+    if (cuda_get_deviceinfo(&m_ctx, m_algorithm) == 0 || cryptonight_extra_cpu_set_gpu(&m_ctx) != 1) {
         LOG_ERR("Setup failed for GPU %zu. Exitting.", m_id);
         return;
     }
