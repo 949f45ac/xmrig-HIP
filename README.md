@@ -1,20 +1,26 @@
-**For best performance, please use amdgpu-pro dkms driver.**
+**You must use amdgpu-pro dkms driver for good performance.**
 
-**Crank up your sclk (core clock) for fast hashrates! Use threads=32 on Vega to save power!**
+**Crank up your sclk (core clock) for fast hashrates! Power consumption stays fine with Threads=32 on Vega!**
 
 # XMRig HIP
 
 A Linux CryptoNight GPU miner built on the HIP framework.
 
 Features:
-- Fast and stable mining with Vega cards! 1800+ CN/2, 2000+ CN/1+xtl+msr
-- Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL (both Cn7 and Cn8)
-- Small Polaris cards (_50, _60) can also be mined on; Cn8 faster than Cn7!
-- Multi algo support for Cn7/Cn8, meaning you can mine on MoneroOcean
+- Vega 64: 2000 H/s and up on CN/2. 2100+ on CN/1 variants
+- Vega 56: 1820+ H/s on CN/2 at least. 2000+ H/s on CN/1 variants.
+- Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL.
+- Small Polaris cards (_50, _60) are also quite fast, losing no speed on CN/2 compared to CN/1.
+- Automatic algo switching (for mining on MoneroOcean)
 
 Caveat emptor
-- Polaris cards need to run in a true PCIe 3.0 x8 or x16 slot – no risers!
-- Nvidia cards are theoretically supported, but that needs more testing
+- Polaris cards need to run in a true PCIe 3.0 x8 or x16 slot – no
+  risers!
+- Dual thread setups on anything but Vega 64 are quite unstable
+  as of yet. Donate job or algo switching will screw Vega 56 hashrates
+  until miner is restarted.
+- Nvidia cards are theoretically supported, but that needs more
+  testing
 
 ## Setup for High Vega Hashrate on Linux
 
@@ -24,11 +30,27 @@ Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
-Follow this guide but *stop* when it wants you to install `rocm-dkms`:
-https://github.com/RadeonOpenCompute/ROCm/#ubuntu-support---installing-from-a-debian-repository
+```bash
+# Make sure you are generally up to date
+sudo apt update
+sudo apt dist-upgrade
+sudo apt install libnuma-dev
+sudo reboot
 
-- Then instead do this: `sudo apt install rocminfo rocm-smi rocm-utils hip_hcc`
-- Add your user to video group `sudo usermod -a -G video $LOGNAME`
+# Add AMD ROCm repo
+wget -qO - http://repo.radeon.com/rocm/apt/debian/rocm.gpg.key | sudo apt-key add -
+echo 'deb [arch=amd64] http://repo.radeon.com/rocm/apt/debian/ xenial main' | sudo tee /etc/apt/sources.list.d/rocm.list
+
+# Install HIP
+sudo apt update
+sudo apt install rocminfo rocm-smi rocm-utils hip_hcc
+
+# Add your user to group "video"
+sudo usermod -a -G video $LOGNAME
+
+# Reboot
+sudo reboot
+```
 - Install [amdgpu-pro](https://www.amd.com/en/support/kb/release-notes/rn-prorad-lin-18-30) with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 - Reboot
 
@@ -52,16 +74,17 @@ cp ../src/config.json .
 ```
 
 ### How do I choose threads and blocks?
-Miner has autoconfig to do this for you, but here’s how to reach even higher hashrate:
+Miner has autoconfig to do this for you, but here’s how to reach even higher hashrate by using multiple workloads per GPU:
 
 Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/bin/rocm-smi`
 
 Use the following threads/blocks depending on card.
 
-- Vega 56: Two threads, each with: Threads = 32, Blocks = 56
-- Vega 64: Two threads, each with Threads = 32, First Blocks = 64, Second Blocks = 60
-- Vega FE: Similar to Vega 64, but use 64+64 as blocks.
-- Polaris _70 or _80: Two threads, each with Threads = 8, Blocks: Try 124, 126 for 4 GB, double that for 8 GB.
+- Vega FE: threads=32, blocks=64 + threads=32, blocks=64
+- Vega 64: threads=32, blocks=64 + threads=32, blocks=60
+- Vega 56: threads=32, blocks=56 + threads=32, blocks=56
+- Polaris 8GB: threads=8, blocks=128 + threads=8, blocks=128
+- Polaris 4GB: threads=8, blocks=126 + threads=8, blocks=126
 - Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
 
 
@@ -79,7 +102,7 @@ Example config:
     "retry-pause": 5,
     "syslog": false,
     "threads": [
-        // Vega dual threads
+        // Vega 64 dual threads
         {
             "index": 0,
             "threads": 32,
@@ -109,12 +132,25 @@ Example config:
 }
 ```
 
+# Optimizations
+- Support two "threads" per GPU, but allocate all the large chunks of GPU memory as single blocks. (Second thread simply adds an offset to the pointers, based on first threads’ work item count.) If both threads allocate their memory blocks at the same time, there is a chance that this happens "naturally"  (calls are interleaved exactly so as to yield the same layout), but doing it programatically gives 100% guarantee it happens.
+
+- On RX Vega, it seems that the tasks of the second thread should be scheduled with a small delay. On Polaris, though, it seems they should rather be scheduled at the exact same time. I have some crude logic for achieving these in xmrig-HIP, but I figure the new interleaving logic in xmr-stak would do a better job.
+
+- In scratchpad striding, use chunk size of exactly 16 x 128 bit. This also means that to get the other 3 memory locations, one can always XOR the base address *after* computing the stride-modified actual address.
+
+- On Vega, stride scratchpads in groups of 256 threads, as far as possible. (Meaning scratchpads stride through 512 MB of memory.) OpenCL miner currently always uses groups of size equal to work size – that seems to be ideal only on Polaris cards.
+
+- It can still pay off to use more memory, so that the overall work item count is not divisible by 256. The remainder then is best divided into groups of 32.
+
+- Using a non-hardcoded (variable) striding group size comes with a performance hit – since we run two threads, we only have to do it on one. E.g. 2048 work items on first thread, 1920 on second thread means the first can run with hardcoded 256.
+
 ## If you want to donate to me (949f45ac) who did HIP port + optimization
 * XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`
 * BTC: `181TVrHPjeVZuKdqEsz8n9maqFLJAzTLc`
 
 ## Automatic donations still go to original XMRig authors
-Default donation 5% (5 minutes in 100 minutes) can be reduced to 1% via command line option `--donate-level`.
+Default donation 5% (5 minutes in 100 minutes) can be reduced to 0% via command line option `--donate-level`.
 
 ## How do I overclock?
 Use soft pp tables.
