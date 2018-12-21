@@ -1,6 +1,6 @@
 **You must use amdgpu-pro dkms driver for good performance.**
 
-**Crank up your sclk (core clock) for fast hashrates! Power consumption stays fine with Threads=32 on Vega!**
+**Crank up your sclk (core clock) for good hashrates on Vega. Power consumption stays reasonable.**
 
 # XMRig HIP
 
@@ -29,7 +29,7 @@ Caveat emptor
 Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 - Install Ubuntu 18.04 or 16.04
-- Install ROCm without dkms: *lol ROCm 2.0 is broken, see if you can install 1.9*
+- Install ROCm without dkms:
 ```bash
 # Make sure you are generally up to date
 sudo apt update
@@ -51,7 +51,7 @@ sudo usermod -a -G video $LOGNAME
 # Reboot
 sudo reboot
 ```
-- Install [amdgpu-pro](https://www.amd.com/en/support/kb/release-notes/rn-prorad-lin-18-30) with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
+- Install [amdgpu-pro](https://www.amd.com/en/support/kb/release-notes/rn-prorad-lin-18-40) with `--opencl=pal --headless` options, make sure its dkms module gets installed for your kernel
 - Reboot
 
 ## Building the miner
@@ -135,7 +135,7 @@ Example config:
 # Optimizations
 - Support two "threads" per GPU, but allocate all the large chunks of GPU memory as single blocks. (Second thread simply adds an offset to the pointers, based on first threads’ work item count.) If both threads allocate their memory blocks at the same time, there is a chance that this happens "naturally"  (calls are interleaved exactly so as to yield the same layout), but doing it programatically gives 100% guarantee it happens.
 
-- On RX Vega, it seems that the tasks of the second thread should be scheduled with a small delay. On Polaris, though, it seems they should rather be scheduled at the exact same time. I have some crude logic for achieving these in xmrig-HIP, but I figure the new interleaving logic in xmr-stak would do a better job.
+- When running two workloads on the same GPU, schedule with a slight delay on the second thread. This is archieved rather crudely in xmrig-HIP; the new interleaving logic in xmr-stak is probably better.
 
 - In scratchpad striding, use chunk size of exactly 16 x 128 bit. This also means that to get the other 3 memory locations, one can always XOR the base address *after* computing the stride-modified actual address.
 
