@@ -542,17 +542,17 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 			LOAD_CHUNK(chunk3, j0, 3);
 		}
 
-		if (SEC_SHIFT < 8) PRIO(2)
+		if (SEC_SHIFT < 8) PRIO(2);
 
-		uint4 c;
-		uint32_t * a32 = reinterpret_cast<uint32_t*>(&a);
+		uint4 c = uint4(0, 0, 0, 0);
+		uint4 a4 = uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 
-		c.x = a32[0] ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
+		c.x = a4.x ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 		j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
 
-		c.y = a32[1]  ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
-		c.z = a32[2]  ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
-		c.w = a32[3]  ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
+		c.y = a4.y ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
+		c.z = a4.z ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
+		c.w = a4.w ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
 
 		if (SEC_SHIFT == 6) {
 			LOAD_CHUNK(chunk1, j0, 1);
