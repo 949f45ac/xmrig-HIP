@@ -79,7 +79,7 @@ __device__ __forceinline__ uint32_t get_reciprocal(uint32_t a)
 
 	const float r_scaled = __uint_as_float(__float_as_uint(r) + (64U << 23));
 
-	const float h = __fmaf_rn(a_lo, r, __fmaf_rn(a_hi, r, -1.0f));
+	const float h = __fmaf(a_lo, r, __fmaf(a_hi, r, -1.0f));
 	return (__float_as_uint(r) << 9) - __float2int_rn(h * r_scaled);
 }
 

@@ -29,7 +29,7 @@ Caveat emptor
 Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 - Install Ubuntu 18.04 or 16.04
-- Install ROCm without dkms:
+- Install ROCm without dkms: *lol ROCm 2.0 is broken, see if you can install 1.9*
 ```bash
 # Make sure you are generally up to date
 sudo apt update
