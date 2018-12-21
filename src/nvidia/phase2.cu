@@ -139,24 +139,23 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 		#pragma unroll 2
 		for ( int x = 0; x < 2; ++x )
 		{
-			uint32_t * const x32 = (uint32_t*) &x64;
-			uint32_t * const a32 = (uint32_t*) &a;
+			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
+			uint4 c = uint4(0, 0, 0, 0);
 
-			uint32_t * const d32 = (uint32_t*) (d+x);
-
-			d32[0] = a32[0] ^ (t_fn0(x32[0] & 0xff) ^ t_fn1((x32[1] >> 8) & 0xff) ^ t_fn2((x32[2] >> 16) & 0xff) ^ t_fn3((x32[3] >> 24)));
-			j1 = SCRATCH_INDEX((d32[0] & 0x1FFFF0 ) >> 4);
-
+			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
+			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
 			uint64_t * adr = reinterpret_cast<uint64_t*>(long_state + j1);
 //			uint64_t ldst0, ldst1;
 			ulonglong2 ldst_f;
 
 			ASYNC_LOAD(ldst_f.x, ldst_f.y, adr);
-			PRIO(1)
+			PRIO(1);
 
-			d32[1] = a32[1]  ^ (t_fn0(x32[1] & 0xff) ^ t_fn1((x32[2] >> 8) & 0xff) ^ t_fn2((x32[3] >> 16) & 0xff) ^ t_fn3((x32[0] >> 24)));
-			d32[2] = a32[2]  ^ (t_fn0(x32[2] & 0xff) ^ t_fn1((x32[3] >> 8) & 0xff) ^ t_fn2((x32[0] >> 16) & 0xff) ^ t_fn3((x32[1] >> 24)));
-			d32[3] = a32[3]  ^ (t_fn0(x32[3] & 0xff) ^ t_fn1((x32[0] >> 8) & 0xff) ^ t_fn2((x32[1] >> 16) & 0xff) ^ t_fn3((x32[2] >> 24)));
+			c.y = (a.x >> 32) ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
+			c.z = ((uint32_t) a.y) ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
+			c.w = (a.y >> 32) ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
+
+			d[x] = *reinterpret_cast<ulonglong2*>(&c);
 
 			ulonglong2 d_xored = d[0];
 			d_xored.x ^= d[1].x;
@@ -165,7 +164,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			uint64_t fork_7 = d_xored.y;
 
 			uint8_t index;
-			if(VARIANT == xmrig::VARIANT_XTL) {
+			if (VARIANT == xmrig::VARIANT_XTL) {
 				index = ((fork_7 >> 27) & 12) | ((fork_7 >> 23) & 2);
 			} else {
 				index = ((fork_7 >> 26) & 12) | ((fork_7 >> 23) & 2);
@@ -304,27 +303,23 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		#pragma unroll 2
 		for ( int x = 0; x < 2; ++x )
 		{
-			uint32_t * const x32 = (uint32_t*) &x64;
-			uint32_t * const a32 = (uint32_t*) &a;
+			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
+			uint4 c = uint4(0, 0, 0, 0);
 
-			uint32_t * const d32 = (uint32_t*) (d+x);
-
-
-			// WAIT_FOR(x64.x, 0);
-			// FENCE(x64.y);
-			d32[0] = a32[0] ^ (t_fn0(x32[0] & 0xff) ^ t_fn1((x32[1] >> 8) & 0xff) ^ t_fn2((x32[2] >> 16) & 0xff) ^ t_fn3((x32[3] >> 24)));
-			j1 = SCRATCH_INDEX((d32[0] & 0x3FFFF0 ) >> 4);
-
+			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
+			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
 			uint64_t * adr = reinterpret_cast<uint64_t*>(long_state + j1);
 //			uint64_t ldst0, ldst1;
 			ulonglong2 ldst_f;
 
 			ASYNC_LOAD(ldst_f.x, ldst_f.y, adr);
-			PRIO(1)
+			PRIO(1);
 
-			d32[1] = a32[1]  ^ (t_fn0(x32[1] & 0xff) ^ t_fn1((x32[2] >> 8) & 0xff) ^ t_fn2((x32[3] >> 16) & 0xff) ^ t_fn3((x32[0] >> 24)));
-			d32[2] = a32[2]  ^ (t_fn0(x32[2] & 0xff) ^ t_fn1((x32[3] >> 8) & 0xff) ^ t_fn2((x32[0] >> 16) & 0xff) ^ t_fn3((x32[1] >> 24)));
-			d32[3] = a32[3]  ^ (t_fn0(x32[3] & 0xff) ^ t_fn1((x32[0] >> 8) & 0xff) ^ t_fn2((x32[1] >> 16) & 0xff) ^ t_fn3((x32[2] >> 24)));
+			c.y = (a.x >> 32) ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
+			c.z = ((uint32_t) a.y) ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
+			c.w = (a.y >> 32) ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
+
+			d[x] = *reinterpret_cast<ulonglong2*>(&c);
 
 			ulonglong2 d_xored = d[0];
 			d_xored.x ^= d[1].x;

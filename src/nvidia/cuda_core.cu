@@ -203,7 +203,8 @@ template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid, block;
-	if (false) { // VARIANT != xmrig::VARIANT_2 && ctx->autolower && ctx->device_threads > 4) {
+	bool lowered = VARIANT != xmrig::VARIANT_2 && !HEAVY && !ctx->is_vega && ctx->device_mpcount > 20 && ctx->device_threads > 4;
+	if (lowered) {
 		grid = dim3( ctx->device_blocks << 1 );
 		block = dim3( ctx->device_threads >> 1);
 	} else if (false) { // round blocks up
@@ -283,6 +284,14 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 							   ctx->d_ctx_a,
 							   ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 
+		} else if (lowered) {
+			hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT, false, SEC_SHIFT-1>,
+							   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
+							   // ctx->device_shift,
+							   // i,
+							   ctx->d_long_state,
+							   ctx->d_ctx_a,
+							   ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 		} else {
 			hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
 							   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
@@ -315,7 +324,7 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 
     if (algo == CRYPTONIGHT || algo == CRYPTONIGHT_HEAVY) {
         switch (variant) {
-		case VARIANT_2:
+        case VARIANT_2:
             cryptonight_core_cpu_hash<VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
@@ -362,7 +371,7 @@ extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Var
 
 #if __HIP_ARCH_GFX803__ || __HIP_ARCH_GFX701__
 	if (ctx->device_mpcount > 22) {
-		cryptonight_gpu_hash_shifted<false, LARGE_POLARIS_SHIFT>(ctx, algo, variant, startNonce);
+		cryptonight_gpu_hash_shifted<false, LARGE_POLARIS_SHIFT-1>(ctx, algo, variant, startNonce);
 		return;
 	}
 
