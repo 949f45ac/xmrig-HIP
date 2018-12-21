@@ -84,7 +84,7 @@ Use the following threads/blocks depending on card.
 - Vega 64: threads=32, blocks=64 + threads=32, blocks=60
 - Vega 56: threads=32, blocks=56 + threads=32, blocks=56
 - Polaris 8GB: threads=8, blocks=128 + threads=8, blocks=128
-- Polaris 4GB: threads=8, blocks=126 + threads=8, blocks=126
+- Polaris 4GB: threads=8, blocks=124 + threads=8, blocks=124
 - Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
 
 
