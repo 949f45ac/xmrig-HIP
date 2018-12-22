@@ -371,7 +371,7 @@ extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Var
 
 #if !ONLY_VEGA
 	if (ctx->device_mpcount > 22) {
-		cryptonight_gpu_hash_shifted<false, LARGE_POLARIS_SHIFT-1>(ctx, algo, variant, startNonce);
+		cryptonight_gpu_hash_shifted<false, LARGE_POLARIS_SHIFT>(ctx, algo, variant, startNonce);
 		return;
 	}
 
