@@ -203,7 +203,7 @@ template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid, block;
-	bool lowered = VARIANT != xmrig::VARIANT_2 && !HEAVY && !ctx->is_vega && ctx->device_mpcount > 20 && ctx->device_threads > 4;
+	bool lowered = false; // VARIANT != xmrig::VARIANT_2 && !HEAVY && !ctx->is_vega && ctx->device_mpcount > 20 && ctx->device_threads > 4;
 	if (lowered) {
 		grid = dim3( ctx->device_blocks << 1 );
 		block = dim3( ctx->device_threads >> 1);
@@ -359,7 +359,7 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
 {
 #if __HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__
-	if (ctx->device_mpcount > 50) {
+	if (ctx->is_vega) {
 		if (ctx->mixed_shift) {
 			cryptonight_gpu_hash_shifted<true, VEGA_SHIFT>(ctx, algo, variant, startNonce);
 		} else {
@@ -369,7 +369,7 @@ extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Var
 	}
 #endif
 
-#if __HIP_ARCH_GFX803__ || __HIP_ARCH_GFX701__
+#if !ONLY_VEGA
 	if (ctx->device_mpcount > 22) {
 		cryptonight_gpu_hash_shifted<false, LARGE_POLARIS_SHIFT-1>(ctx, algo, variant, startNonce);
 		return;
