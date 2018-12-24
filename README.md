@@ -60,6 +60,7 @@ sudo reboot
 sudo apt install cmake libuv1-dev libssl-dev
 mkdir build
 cd build
+export HIP_PLATFORM=hcc
 cmake .. -DCUDA_COMPILER=/opt/rocm/bin/hipcc -DHIP_PLATFORM=hcc -DHIP_ROOT_DIR=/opt/rocm/hip -DWITH_HTTPD=OFF
 
 # First invocation of linker tends to fail
