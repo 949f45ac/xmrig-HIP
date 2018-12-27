@@ -396,11 +396,12 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
     }
 }
 
-#define ONLY_VEGA __HIP_ARCH_GFX900__ && !(__HIP_ARCH_GFX803__ || __HIP_ARCH_GFX802__ || __HIP_ARCH_GFX801__ || __HIP_ARCH_GFX701__)
+#define COMPILE_FOR_VEGA (__HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__)
+#define ONLY_VEGA (COMPILE_FOR_VEGA && !(__HIP_ARCH_GFX803__ || __HIP_ARCH_GFX802__ || __HIP_ARCH_GFX801__ || __HIP_ARCH_GFX701__))
 
 extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
 {
-#if 1  // __HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__
+#if COMPILE_FOR_VEGA
 	if (ctx->is_vega) {
 		if (ctx->mixed_shift) {
 			cryptonight_gpu_hash_shifted<true, VEGA_SHIFT>(ctx, algo, variant, startNonce);
