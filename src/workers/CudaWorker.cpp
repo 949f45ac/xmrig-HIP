@@ -81,10 +81,6 @@ uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, d
 		const double avgRuntime = interleaveData->avgKernelRuntime;
 		// const double optimalTimeOffset = avgRuntime * interleaveData->adjustThreshold;
 
-		// threshold where the the auto adjustment is disabled
-		constexpr uint32_t maxDelay = 10;
-		constexpr double maxAutoAdjust = 0.05;
-		
 		LOG_DEBUG("Measured %u|%u: %.1lf optimal / %.2lf actual",
 				 ctx->device_id,
 				 ctx->idWorkerOnDevice,
@@ -105,7 +101,7 @@ uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, d
 		if(delay > 0)
 		{
 			// do not notify the user anymore if we reach a good delay
-			if(delay > maxDelay)
+			if(delay > 50)
 				LOG_INFO("HIP Interleave %u|%u: %u/%.2lf ms",
 					ctx->device_id,
 					ctx->idWorkerOnDevice,
