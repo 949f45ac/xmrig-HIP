@@ -95,24 +95,6 @@ uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, d
 		if((dt > 0) && (dt < optimalTimeOffset))
 		{
             delay = static_cast<int64_t>((optimalTimeOffset  - dt));
-			if(ctx->lastDelay == delay && delay > maxDelay)
-				interleaveData->adjustThreshold -= 0.001;
-			// if the delay doubled than increase the adjustThreshold
-			else if(delay > 1 && ctx->lastDelay * 2 < delay)
-				interleaveData->adjustThreshold += 0.001;
-			ctx->lastDelay = delay;
-
-			// this is std::clamp which is available in c++17
-			interleaveData->adjustThreshold = std::max(
-				std::max(interleaveData->adjustThreshold, interleaveData->startAdjustThreshold - maxAutoAdjust),
-				std::min(interleaveData->adjustThreshold, interleaveData->startAdjustThreshold + maxAutoAdjust)
-			);
-			// avoid that the auto adjustment is disable interleaving
-			interleaveData->adjustThreshold = std::max(
-				interleaveData->adjustThreshold,
-				0.001
-			);
-
 			delay += 20;
 		}
 		delay = std::max(int64_t(0), delay);
@@ -124,12 +106,11 @@ uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, d
 		{
 			// do not notify the user anymore if we reach a good delay
 			if(delay > maxDelay)
-				LOG_INFO("HIP Interleave %u|%u: %u/%.2lf ms - %.1lf",
+				LOG_INFO("HIP Interleave %u|%u: %u/%.2lf ms",
 					ctx->device_id,
 					ctx->idWorkerOnDevice,
 					static_cast<uint32_t>(delay),
-					avgRuntime,
-					interleaveData->adjustThreshold * 100.
+					avgRuntime
 				);
 
 			std::this_thread::sleep_for(std::chrono::milliseconds(delay));
