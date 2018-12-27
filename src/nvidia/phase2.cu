@@ -140,11 +140,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
-#ifdef __HCC
-			uint4 c = uint4(0, 0, 0, 0);
-#else
-			uint4 c;
-#endif
+			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
@@ -308,11 +304,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
-#ifdef __HCC
-			uint4 c = uint4(0, 0, 0, 0);
-#else
-			uint4 c;
-#endif
+			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
@@ -557,11 +549,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		if (SEC_SHIFT < 8) PRIO(2);
 
-#ifdef __HCC
-		uint4 c = uint4(0, 0, 0, 0);
-#else
-		uint4 c;
-#endif
+		uint4 c = make_uint4(0, 0, 0, 0);
 		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 
 		c.x = a4.x ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));

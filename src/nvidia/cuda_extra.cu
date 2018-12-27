@@ -313,6 +313,10 @@ extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx)
    ctx->d_ctx_a += 4 * wsize_off;
    ctx->d_ctx_b += 4 * wsize_off;
 
+   if (ctx->device_mpcount > 55) {
+	   ctx->is_vega = true;
+   }
+
    return 1;
 }
 
