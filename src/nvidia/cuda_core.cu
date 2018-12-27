@@ -93,7 +93,7 @@ __device__ __forceinline__ void storeGlobal128AsyncGlc( T* adr, T const & val ) 
 #undef HEAVY
 
 // Number of threads per block to use in phase 1 and 3
-#ifdef __HIP_PLATFORM_HCC_
+#ifdef __HIP_PLATFORM_HCC__
 #define P13T 256
 #else
 #define P13T 128
@@ -396,7 +396,7 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
     }
 }
 
-#define HAS_VEGA __HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__
+#define HAS_VEGA (__HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__)
 #define ONLY_VEGA HAS_VEGA && !(__HIP_ARCH_GFX803__ || __HIP_ARCH_GFX802__ || __HIP_ARCH_GFX801__ || __HIP_ARCH_GFX701__)
 
 extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
