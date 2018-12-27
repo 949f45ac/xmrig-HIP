@@ -31,15 +31,16 @@
 #include "nvidia/cryptonight.h"
 
 #include "interfaces/IThread.h"
+#include "workers/InterleaveData.h"
 
+#include <mutex>
 
 class IWorker;
-
 
 class Handle
 {
 public:
-    Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays, nvid_ctx base_ctx);
+    Handle(size_t threadId, xmrig::IThread *config, uint32_t offset, size_t totalWays, nvid_ctx base_ctx, InterleaveData * interleave);
     void join();
     void start(void (*callback) (void *));
 
@@ -50,6 +51,7 @@ public:
     inline void setWorker(IWorker *worker) { assert(worker != nullptr); m_worker = worker; }
     inline xmrig::IThread *config() const  { return m_config; }
 	inline nvid_ctx base_ctx() const       { return m_base_ctx; }
+	inline InterleaveData * interleave() const { return m_interleave; }
 
 private:
     IWorker *m_worker;
@@ -59,6 +61,7 @@ private:
     uv_thread_t m_thread;
     xmrig::IThread *m_config;
 	nvid_ctx m_base_ctx;
+	InterleaveData * m_interleave;
 };
 
 

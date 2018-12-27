@@ -10,7 +10,6 @@
 
 #include <sys/time.h>
 
-
 #ifdef __HIPCC__
 __constant__
 #else
@@ -587,6 +586,7 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	}
 
 	ctx->mixed_shift = false;
+
 
 	int t = ctx->device_threads * ctx->device_blocks;
 	int rest = t % d;

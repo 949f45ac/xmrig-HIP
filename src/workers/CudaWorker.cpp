@@ -35,11 +35,116 @@
 #include "workers/Workers.h"
 
 
+inline size_t get_timestamp_ms()
+{
+	using namespace std::chrono;
+	if(high_resolution_clock::is_steady)
+		return time_point_cast<milliseconds>(high_resolution_clock::now()).time_since_epoch().count();
+	else
+		return time_point_cast<milliseconds>(steady_clock::now()).time_since_epoch().count();
+}
+
+
+void updateTimings(InterleaveData * interleaveData, const uint64_t t)
+{
+    // averagingBias = 1.0 - only the last delta time is taken into account
+    // averagingBias = 0.5 - the last delta time has the same weight as all the previous ones combined
+    // averagingBias = 0.1 - the last delta time has 10% weight of all the previous ones combined
+    const double averagingBias = 1.0;
+
+    {
+		int64_t t2 = get_timestamp_ms();
+		std::lock_guard<std::mutex> g(interleaveData->mutex);
+		// 20000 mean that something went wrong an we reset the average
+		if(interleaveData->avgKernelRuntime == 0.0 || interleaveData->avgKernelRuntime > 20000.0)
+			interleaveData->avgKernelRuntime = (t2 - t);
+		else
+			interleaveData->avgKernelRuntime = interleaveData->avgKernelRuntime * (1.0 - averagingBias) + (t2 - t) * averagingBias;
+    }
+}
+
+uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, double optimalTimeOffset)
+{
+	uint64_t t0 = get_timestamp_ms();
+
+	if(interleaveData->numThreadsOnGPU > 1 && interleaveData->adjustThreshold > 0.0)
+    {
+		t0 = get_timestamp_ms();
+		std::unique_lock<std::mutex> g(interleaveData->mutex);
+
+		int64_t delay = 0;
+        double dt = 0.0;
+
+		if(t0 > interleaveData->lastRunTimeStamp)
+			dt = static_cast<double>(t0 - interleaveData->lastRunTimeStamp);
+
+		const double avgRuntime = interleaveData->avgKernelRuntime;
+		// const double optimalTimeOffset = avgRuntime * interleaveData->adjustThreshold;
+
+		// threshold where the the auto adjustment is disabled
+		constexpr uint32_t maxDelay = 10;
+		constexpr double maxAutoAdjust = 0.05;
+		
+		LOG_DEBUG("Measured %u|%u: %.1lf optimal / %.2lf actual",
+				 ctx->device_id,
+				 ctx->idWorkerOnDevice,
+				 optimalTimeOffset,
+				 dt
+			);
+
+		if((dt > 0) && (dt < optimalTimeOffset))
+		{
+            delay = static_cast<int64_t>((optimalTimeOffset  - dt));
+			if(ctx->lastDelay == delay && delay > maxDelay)
+				interleaveData->adjustThreshold -= 0.001;
+			// if the delay doubled than increase the adjustThreshold
+			else if(delay > 1 && ctx->lastDelay * 2 < delay)
+				interleaveData->adjustThreshold += 0.001;
+			ctx->lastDelay = delay;
+
+			// this is std::clamp which is available in c++17
+			interleaveData->adjustThreshold = std::max(
+				std::max(interleaveData->adjustThreshold, interleaveData->startAdjustThreshold - maxAutoAdjust),
+				std::min(interleaveData->adjustThreshold, interleaveData->startAdjustThreshold + maxAutoAdjust)
+			);
+			// avoid that the auto adjustment is disable interleaving
+			interleaveData->adjustThreshold = std::max(
+				interleaveData->adjustThreshold,
+				0.001
+			);
+
+			delay += 20;
+		}
+		delay = std::max(int64_t(0), delay);
+
+		interleaveData->lastRunTimeStamp = t0 + delay;
+
+		g.unlock();
+		if(delay > 0)
+		{
+			// do not notify the user anymore if we reach a good delay
+			if(delay > maxDelay)
+				LOG_INFO("HIP Interleave %u|%u: %u/%.2lf ms - %.1lf",
+					ctx->device_id,
+					ctx->idWorkerOnDevice,
+					static_cast<uint32_t>(delay),
+					avgRuntime,
+					interleaveData->adjustThreshold * 100.
+				);
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+		}
+    }
+
+    return t0;
+}
+
 CudaWorker::CudaWorker(Handle *handle) :
     m_id(handle->threadId()),
     m_threads(handle->totalWays()),
     m_algorithm(handle->config()->algorithm()),
 	m_ctx(handle->base_ctx()),
+	interleave(handle->interleave()),
     m_hashCount(0),
     m_timestamp(0),
     m_count(0),
@@ -91,6 +196,22 @@ void CudaWorker::start()
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for/2));
 
+	if (interleave->numThreadsOnGPU > 1) {
+		std::unique_lock<std::mutex> g(interleave->mutex);
+		interleave->lastRunTimeStamp = get_timestamp_ms();
+		g.unlock();
+	}
+
+	double optimal_offset = 0.8 * (m_ctx.device_blocks * m_ctx.device_threads) / interleave->numThreadsOnGPU;
+	// if (sleep_for > 0) {
+	// 	optimal_offset = 2 * sleep_for;
+	// } else {
+	// 	int wsize = m_ctx.device_blocks * m_ctx.device_threads;
+	// 	if (wsize < m_ctx.overall_wsize_on_card) {
+	// 		optimal_offset = (m_ctx.overall_wsize_on_card - wsize) / 3;
+	// 	}
+	// }
+
     while (Workers::sequence() > 0) {
         if (Workers::isPaused()) {
             do {
@@ -102,9 +223,6 @@ void CudaWorker::start()
                 break;
             }
 
-			// Desync threads again.
-			std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for/2));
-
             consumeJob();
         }
 
@@ -114,6 +232,7 @@ void CudaWorker::start()
 #endif
         cryptonight_extra_cpu_set_data(&m_ctx, m_blob, m_job.size());
 
+		uint64_t t0 = get_timestamp_ms();
         while (!Workers::isOutdated(m_sequence)) {
             uint32_t foundNonce[10];
             uint32_t foundCount;
@@ -131,7 +250,10 @@ void CudaWorker::start()
             m_nonce += m_ctx.device_blocks * m_ctx.device_threads;
 
             storeStats();
+
+			updateTimings(interleave, t0);
             std::this_thread::yield();
+			t0 = interleaveAdjustDelay(&m_ctx, interleave, optimal_offset);
         }
 
         consumeJob();

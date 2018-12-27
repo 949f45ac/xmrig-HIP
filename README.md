@@ -82,7 +82,7 @@ Find card numbers (to specify as `"index": ` in the json) by running `/opt/rocm/
 Use the following threads/blocks depending on card.
 
 - Vega FE: threads=32, blocks=64 + threads=32, blocks=64
-- Vega 64: threads=32, blocks=63 + threads=32, blocks=63
+- Vega 64: threads=32, blocks=64 + threads=32, blocks=60
 - Vega 56: threads=32, blocks=56 + threads=32, blocks=56
 - Polaris 8GB: threads=8, blocks=128 + threads=8, blocks=128
 - Polaris 4GB: threads=8, blocks=124 + threads=8, blocks=124

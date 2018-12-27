@@ -39,6 +39,7 @@
 #include "workers/CudaWorker.h"
 #include "workers/Handle.h"
 #include "workers/Hashrate.h"
+#include "workers/InterleaveData.h"
 #include "workers/Workers.h"
 
 #include "nvidia/cryptonight.h"
@@ -233,6 +234,7 @@ bool Workers::start(xmrig::Controller *controller)
 
 	const size_t max_cards = 32;
 	nvid_ctx bases[max_cards];
+	InterleaveData * interleave[max_cards];
 
 	for (xmrig::IThread *thread_g : threads) {
 		CudaThread *thread = static_cast<CudaThread *>(thread_g);
@@ -242,9 +244,13 @@ bool Workers::start(xmrig::Controller *controller)
 		base_ctx->overall_wsize_on_card += thread->blocks() * thread->threads();
 	}
 
-	for (int i = 0; i < max_cards; i++) {
+	for (size_t i = 0; i < max_cards; i++) {
 		if (bases[i].overall_wsize_on_card > 0) {
 			cryptonight_gpu_init(bases+i, algo);
+
+			interleave[i] = new InterleaveData;
+			interleave[i]->adjustThreshold = 0.2;
+			interleave[i]->startAdjustThreshold = 0.2;
 		}
 	}
 
@@ -253,13 +259,15 @@ bool Workers::start(xmrig::Controller *controller)
 		CudaThread *thread = static_cast<CudaThread *>(thread_g);
 		int device_id = thread->index();
 
-        Handle *handle = new Handle(i, thread, offset, ways, bases[device_id]);
+		bases[device_id].idWorkerOnDevice = interleave[device_id]->numThreadsOnGPU;
+        Handle *handle = new Handle(i, thread, offset, ways, bases[device_id], interleave[device_id]);
         offset += static_cast<size_t>(thread->multiway());
         i++;
 
         m_workers.push_back(handle);
         handle->start(Workers::onReady);
 
+		++interleave[device_id]->numThreadsOnGPU;
 		bases[device_id].w_off += thread->blocks() * thread->threads();
     }
 

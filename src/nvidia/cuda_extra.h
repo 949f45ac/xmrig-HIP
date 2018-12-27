@@ -127,7 +127,7 @@ __forceinline__ __device__ uint64_t cuda_ROTL64(const uint64_t value, const int 
 	asm volatile("mov.u64 %0, %1;\n\t" : "=l" (w) : "l" (w) : "memory"); }
 
 #define FENCE32(w) { \
-	asm volatile("mov.u32 %0, %1;\n\t" : "=l" (w) : "l" (w) : "memory"); }
+	asm volatile("mov.u32 %0, %1;\n\t" : "=r" (w) : "r" (w) : "memory"); }
 //	uint32_t * const w = reinterpret_cast<uint32_t*const>(&x); \
 //	asm volatile("mov.u32 %0, %2;\n\tmov.u32 %1, %3;" : "=r" (w[0]), "=r" (w[1]) : "r" (w[0]), "r" (w[1]) : "memory"); }
 #endif

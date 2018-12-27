@@ -140,7 +140,11 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
+#ifdef __HCC
 			uint4 c = uint4(0, 0, 0, 0);
+#else
+			uint4 c;
+#endif
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
@@ -304,7 +308,11 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
+#ifdef __HCC
 			uint4 c = uint4(0, 0, 0, 0);
+#else
+			uint4 c;
+#endif
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
@@ -372,12 +380,17 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			int64_t n_;
 			int32_t d_;
+#ifdef __HCC__
 			asm (
 				EMIT_LOAD("%0, %2") MFLAGS " \n\t"
 				"flat_load_dword %1, %3" MFLAGS " \n\t"
 				: "=v"(n_), "=v" (d_)
 				: "r" (adr), "r"(adr+1)
 				: "memory");
+#else
+			n_ = adr[0];
+			d_ = adr[1];
+#endif
 			PRIO(0)
 
 			FENCE(t1_64)
@@ -399,7 +412,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			same_adr = j0 == j1;
 
 #ifndef __HCC__
-			ldst = long_state[j0];
+			//ulonglong2 ldst = long_state[j0];
 #endif
 			a.y ^= y2.y;
 
@@ -422,9 +435,13 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			// ASYNC_LOAD(ldst, x64.y, long_state+j2);
 
 			int64_t nxq = n^q;
+#ifdef __HCC__
 			asm ("flat_store_dwordx2 %0, %1"	MFLAGS
 				 :
 				 : "r" (long_state+j0), "v" (nxq) : "memory");
+#else
+			long_state[j0].x = nxq;
+#endif
 
 			x64.x = long_state[j2].x;
 
@@ -464,8 +481,9 @@ v_xor(ulonglong2 a, ulonglong2 b)
 #endif
 }
 
+//__launch_bounds__( 64, 3 )
+
 template<bool MIXED_SHIFT, int SEC_SHIFT>
-__launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
 {
 	__shared__ uint32_t sharedMemWritable[1024];
@@ -539,8 +557,12 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		if (SEC_SHIFT < 8) PRIO(2);
 
+#ifdef __HCC
 		uint4 c = uint4(0, 0, 0, 0);
-		uint4 a4 = uint4(a.x, a.x >> 32, a.y, a.y >> 32);
+#else
+		uint4 c;
+#endif
+		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 
 		c.x = a4.x ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 		j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
@@ -593,7 +615,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t lo = t1_64 * y2.x;
 
 
-		ulonglong2 result_mul = ulonglong2(hi, lo);
+		ulonglong2 result_mul = make_ulonglong2(hi, lo);
 
 		// 	ulong2 chunk1 = as_ulong2(SCRATCHPAD_CHUNK(1)) ^ result_mul;
 		chunk1 = v_xor(chunk1, result_mul);

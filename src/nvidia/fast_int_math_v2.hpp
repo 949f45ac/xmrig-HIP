@@ -1,9 +1,15 @@
 #pragma once
 
 #include <stdint.h>
-#define OCML_BASIC_ROUNDED_OPERATIONS 1
+
 #include <hip/hip_runtime.h>
+
+#ifdef __HCC__
 #include <hip/hcc_detail/math_functions.h>
+#else
+#include <hip/math_functions.h>
+#endif
+
 
 static __constant__ const uint32_t RCP_C[256] =
 {
@@ -79,7 +85,7 @@ __device__ __forceinline__ uint32_t get_reciprocal(uint32_t a)
 
 	const float r_scaled = __uint_as_float(__float_as_uint(r) + (64U << 23));
 
-	const float h = __fmaf(a_lo, r, __fmaf(a_hi, r, -1.0f));
+	const float h = fmaf(a_lo, r, fmaf(a_hi, r, -1.0f));
 	return (__float_as_uint(r) << 9) - __float2int_rn(h * r_scaled);
 }
 
@@ -115,12 +121,6 @@ __device__ __forceinline__ uint32_t fast_sqrt_v2(const uint64_t n1)
 	asm("rsqrt.approx.f32 %0, %1;" : "=f"(x1) : "f"(x));
 	asm("sqrt.approx.f32 %0, %1;" : "=f"(x) : "f"(x));
 #endif
-
-	// float x1 = native_rsqrt(x);
-	// x = native_sqrt(x);
-
-	// x1 = rsqrt(x);
-	// x = sqrt(x);
 
 	// The following line does x1 *= 4294967296.0f;
 	x1 = __uint_as_float(__float_as_uint(x1) + (32U << 23));

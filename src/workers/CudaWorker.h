@@ -33,6 +33,7 @@
 #include "interfaces/IWorker.h"
 #include "net/JobResult.h"
 #include "nvidia/cryptonight.h"
+#include "workers/InterleaveData.h"
 
 
 class Handle;
@@ -64,6 +65,7 @@ private:
     Job m_job;
     Job m_pausedJob;
     nvid_ctx m_ctx;
+	InterleaveData * interleave;
     std::atomic<uint64_t> m_hashCount;
     std::atomic<uint64_t> m_timestamp;
     uint32_t m_nonce;

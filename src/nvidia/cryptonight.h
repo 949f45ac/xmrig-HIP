@@ -1,6 +1,7 @@
 
-#ifndef __HIP_PLATFORM_HCC__
-#define __HIP_PLATFORM_HCC__ 1
+#if !defined(__HIP_PLATFORM_HCC__) && !defined(__HIP_PLATFORM_NVCC__)
+#define TEMP_PLATFORM
+#define __HIP_PLATFORM_HCC__
 #endif
 
 #include <hip/hip_runtime.h>
@@ -8,6 +9,8 @@
 
 #include <stdint.h>
 #include "../common/xmrig.h"
+
+#include <memory>
 
 #define VEGA_SHIFT (8)
 #define LARGE_POLARIS_SHIFT (3)
@@ -37,6 +40,10 @@ typedef struct {
 	size_t w_off = 0;
 
 	hipStream_t stream;
+
+	uint32_t idWorkerOnDevice = 0u;
+	int interleave = 40;
+	uint64_t lastDelay = 0;
 
 	uint32_t *d_input;
 	uint32_t inputlen;
@@ -70,3 +77,9 @@ void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heav
 void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
 void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy);
 }
+
+#ifdef TEMP_PLATFORM
+#undef TEMP_PLATFORM
+#undef __HIP_PLATFORM_NVCC__
+#undef __HIP_PLATFORM_HCC__
+#endif
