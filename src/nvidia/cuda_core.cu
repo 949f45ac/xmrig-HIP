@@ -206,8 +206,6 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 		}
 	}
 
-	//memcpy(d_ctx_state + thread * 50 + sub + 16, &text, sizeof(uint4));
-	// memc_<1>(d_ctx_state + thread * 50 + sub + 16, &text);
 	MEMCPY8(d_ctx_state + thread * 50 + sub + 16, &text, 2);
 	__syncthreads( );
 }
@@ -252,8 +250,10 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 	dim3 block8( ctx->device_threads << 3 );
 	dim3 block16( ctx->device_threads << 4 );
 
-	dim3 p1_3_grid((ctx->device_blocks * ctx->device_threads * 8) / P13T);
-	dim3 p1_3_block( P13T );
+	int p13t = ctx->device_bsleep > 0 ? ctx->device_bsleep : P13T;
+
+	dim3 p1_3_grid((ctx->device_blocks * ctx->device_threads * 8) / p13t);
+	dim3 p1_3_block( p13t );
 
 	int partcount = 1 << ctx->device_bfactor;
 
