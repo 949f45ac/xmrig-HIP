@@ -580,7 +580,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		// // to make sure we don't divide by a small or even number,
 		// // so there are no shortcuts for such cases
 		const uint din = (c.x + (sqrt_result << 1)) | 0x80000001UL;
-		FENCE32(j1);
+		if (MIXED_SHIFT) FENCE32(j1);
 		// Quotient may be as large as (2^64 - 1)/(2^31 + 1) = 8589934588 = 2^33 - 4
 		// We drop the highest bit to fit both quotient and remainder in 32 bits
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
