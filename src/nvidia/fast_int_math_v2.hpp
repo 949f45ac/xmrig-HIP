@@ -90,7 +90,7 @@ __device__ __forceinline__ uint32_t get_reciprocal(uint32_t a)
 	return (__float_as_uint(r) << 9) - __float2int_rn(h * r_scaled);
 }
 
-__device__ __forceinline__ uint64_t fast_div_v2(const uint32_t *RCP, uint64_t a, uint32_t b)
+__device__ __forceinline__ uint64_t fast_div_v2(uint64_t a, uint32_t b)
 {
 	const uint32_t r = get_reciprocal(b);
 	const uint64_t k = __umulhi(((uint32_t*)&a)[0], r) + ((uint64_t)(r) * ((uint32_t*)&a)[1]) + a;

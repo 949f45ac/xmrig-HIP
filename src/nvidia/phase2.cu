@@ -577,7 +577,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		PRIO(3)
 
 		const uint din = ( (c.x) + (sqrt_result << 1)) | 0x80000001UL;
-		uint64_t n_division_result = fast_div_v2(RCP, reinterpret_cast<ulonglong2*>(&c)->y, din);
+		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
