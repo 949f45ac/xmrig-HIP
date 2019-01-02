@@ -561,15 +561,16 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 			long_state[j0] = d_xored;
 		}
 
-		ulonglong2 y2 = long_state[j1];
-		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
-
 		// ==== LOAD 2 : chunks ====
+		LOAD_CHUNK(chunk3, j1, 3);
+		ulonglong2 y2 = long_state[j1];
 		LOAD_CHUNK(chunk1, j1, 1);
 		LOAD_CHUNK(chunk2, j1, 2);
-		LOAD_CHUNK(chunk3, j1, 3);
+
 
 		PRIO(3)
+		FENCE32(c.x);
+		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
 
 		const uint din = ( (c.x) + (sqrt_result << 1)) | 0x80000001UL;
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
