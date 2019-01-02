@@ -479,7 +479,6 @@ __launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
 {
 	__shared__ uint32_t sharedMemWritable[1024];
-	__shared__ uint32_t RCP[256];
 
 	cn_aes_gpu_init( sharedMemWritable );
 
