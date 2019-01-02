@@ -524,6 +524,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	sqrt_result = *(ctx_b+10);
 
 	__syncthreads();
+	#pragma unroll 4
 	for ( i = start; i < end; ++i )
 	{
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
