@@ -568,20 +568,26 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		LOAD_CHUNK(chunk1, j1, 1);
 		LOAD_CHUNK(chunk2, j1, 2);
 
-
 		PRIO(3)
 		FENCE32(c.x);
 		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
 
 		const uint din = ( (c.x) + (sqrt_result << 1)) | 0x80000001UL;
-		if (MIXED_SHIFT) FENCE32(j1);
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 		FENCE32(n_sqrt_result);
 
+		uint4 dl = make_uint4(d_old.x, d_old.x >> 32, d_old.y, d_old.y >> 32);
+		asm volatile(
+			"v_add_co_u32_e32  %0, vcc, %8, %4 \n\t"
+			"v_addc_co_u32_e32 %1, vcc, %9, %5, vcc \n\t"
+			"v_add_co_u32_e32  %2, vcc, %10, %6 \n\t"
+			"v_addc_co_u32_e32 %3, vcc, %11, %7, vcc \n\t"
+			: "=v" (dl.x), "=v" (dl.y), "=v" (dl.z), "=v" (dl.w)
+			: "v" ((uint32_t)chunk3.x), "v" ((uint32_t)(chunk3.x >> 32)), "v" ((uint32_t)chunk3.y), "v" ((uint32_t)(chunk3.y>>32)),
+			  "v" (dl.x), "v" (dl.y), "v" (dl.z), "v" (dl.w) : "vcc", "memory");
 
-		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
-		FENCE32(sqrt_result);
+		reinterpret_cast<uint4*>(long_state)[j1^1] = dl;
 
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
 
