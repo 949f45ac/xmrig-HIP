@@ -72,18 +72,19 @@ __device__ __forceinline__ uint32_t get_reciprocal_old(const uint32_t* RCP, uint
 
 __device__ __forceinline__ uint32_t get_reciprocal(uint32_t a)
 {
-	const float a_hi = __uint_as_float((a >> 8) + ((126U + 31U) << 23));
-	const float a_lo = __uint2float_rn(a & 0xFF);
-
-	float r;
+	const float a_hi = __uint_as_float((a >> 8) + (1317011456U));
 
 #ifdef __HCC__
-	asm("V_RCP_F32 %0, %1\n\t" : "=v"(r) : "v"(a_hi));
+	float a_lo; // = __uint2float_rn(a & 0xFF); - Broken! Yields v_cvt_f32_ubyte0_e32
+	asm ("V_CVT_F32_UBYTE0 %0, %1" : "=v"(a_lo) : "v"(a));
+	const float r = __llvm_amdgcn_rcp_f32(a_hi);
 #else
+	float a_lo = __uint2float_rn(a & 0xFF);
+	float r;
 	asm("rcp.approx.f32 %0, %1;" : "=f"(r) : "f"(a_hi));
 #endif
 
-	const float r_scaled = __uint_as_float(__float_as_uint(r) + (64U << 23));
+	const float r_scaled = __uint_as_float(__float_as_uint(r) + (0x20000000U));
 
 	const float h = fmaf(a_lo, r, fmaf(a_hi, r, -1.0f));
 	return (__float_as_uint(r) << 9) - __float2int_rn(h * r_scaled);
@@ -91,7 +92,7 @@ __device__ __forceinline__ uint32_t get_reciprocal(uint32_t a)
 
 __device__ __forceinline__ uint64_t fast_div_v2(const uint32_t *RCP, uint64_t a, uint32_t b)
 {
-	const uint32_t r = get_reciprocal_old(RCP, b);
+	const uint32_t r = get_reciprocal(b);
 	const uint64_t k = __umulhi(((uint32_t*)&a)[0], r) + ((uint64_t)(r) * ((uint32_t*)&a)[1]) + a;
 
 	uint32_t q[2];
