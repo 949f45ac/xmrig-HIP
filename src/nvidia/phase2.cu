@@ -483,9 +483,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	cn_aes_gpu_init( sharedMemWritable );
 
-	for(int i = hipThreadIdx_x; i < 256; i += hipBlockDim_x)
-		RCP[i] = RCP_C[i];
-
 	__syncthreads( );
 
 	const uint32_t * const __restrict__ sharedMemory = (const uint32_t*) sharedMemWritable;
