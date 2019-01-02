@@ -1,6 +1,6 @@
 // This configuration file runs monero_v8 kernel with MIXED_SHIFT=true
 // On the current commit it produces correct results.
-// The performance on Vega 64 with PPTable vega_64_ppt.bin applied is: 1940 H/s
+// The performance on Vega 64 with PPTable vega_64_ppt.bin applied is: 1943 H/s
 {
     "algo": "cryptonight",
     "api": {
