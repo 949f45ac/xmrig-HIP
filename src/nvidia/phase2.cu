@@ -574,8 +574,14 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
 
 		const uint din = ( (c.x) + (sqrt_result << 1)) | 0x80000001UL;
+		if (MIXED_SHIFT) FENCE32(j1);
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
+		FENCE32(n_sqrt_result);
+
+
+		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
+		FENCE32(sqrt_result);
 
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
 
@@ -592,7 +598,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		chunk1 = v_xor(chunk1, result_mul);
 		result_mul = v_xor(result_mul, chunk2);
 
-		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j1, v_add(chunk1, d), 2);
 		STORE_CHUNK(j1, v_add(chunk2, a), 3);
 
