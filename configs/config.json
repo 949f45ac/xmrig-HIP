@@ -1,0 +1,48 @@
+// This configuration file runs monero_v8 kernel with MIXED_SHIFT=false
+// On the current commit it produces correct results.
+// The performance on Vega 64 with PPTable vega_64_ppt.bin applied is: 1910 H/s
+{
+    "algo": "cryptonight",
+    "api": {
+        "port": 0,
+        "access-token": null,
+        "worker-id": null,
+        "ipv6": false,
+        "restricted": true
+    },
+    "background": false,
+    "colors": true,
+    "cuda-bfactor": 0,
+    "cuda-bsleep": 0,
+    "cuda-max-threads": 64,
+    "donate-level": 1,
+    "log-file": null,
+    "pools": [
+        {
+            "url": "killallasics.moneroworld.com:5555",
+            "user": "9v4vTVwqZzfjCFyPi7b9Uv1hHntJxycC4XvRyEscqwtq8aycw5xGpTxFyasurgf2KRBfbdAJY4AVcemL1JCegXU4EZfMtaz",
+            "pass": "x",
+            "rig-id": null,
+            "nicehash": false,
+            "keepalive": true,
+            "variant": -1
+        }
+    ],
+    "print-time": 20,
+    "retries": 5,
+    "retry-pause": 5,
+    "threads": [
+        {
+            "index": 0,
+            "threads": 32,
+            "blocks": 120,
+            "bfactor": 0,
+            "bsleep": 0,
+            "sync_mode": 3,
+            "affine_to_cpu": false
+        }
+    ],
+    "user-agent": null,
+    "syslog": false,
+    "watch": false
+}

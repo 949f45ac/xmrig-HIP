@@ -368,21 +368,21 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
             cryptonight_core_cpu_hash<VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
-        case VARIANT_1:
-            cryptonight_core_cpu_hash<VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-            break;
+        // case VARIANT_1:
+        //     cryptonight_core_cpu_hash<VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+        //     break;
 
-        case VARIANT_XTL:
-            cryptonight_core_cpu_hash<VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-            break;
+        // case VARIANT_XTL:
+        //     cryptonight_core_cpu_hash<VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+        //     break;
 
-        case VARIANT_MSR:
-            cryptonight_core_cpu_hash<VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-            break;
+        // case VARIANT_MSR:
+        //     cryptonight_core_cpu_hash<VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+        //     break;
 
-        case VARIANT_XHV:
-            cryptonight_core_cpu_hash<VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-            break;
+        // case VARIANT_XHV:
+        //     cryptonight_core_cpu_hash<VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+        //     break;
 
         default:
             printf("Only CN1, XTL, MSR, XHV supported for now, but you requested: %d\n.", variant);

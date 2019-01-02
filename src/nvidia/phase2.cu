@@ -518,7 +518,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
 
-//	__local uint RCP[256];
 	uint64_t division_result;
 	uint32_t sqrt_result;
 
@@ -527,12 +526,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	ulonglong2 d_old = reinterpret_cast<ulonglong2*>(ctx_b)[1];
 	division_result = *reinterpret_cast<uint64_t*>(ctx_b+8);
 	sqrt_result = *(ctx_b+10);
-
-	// bx0 = ((u64*)(d_ctx_b + thread * 12))[sub];
-	// 	bx1 = ((u64*)(d_ctx_b + thread * 12 + 4))[sub];
-
-	// 	division_result = ((uint64_t*)(d_ctx_b + thread * 12 + 4 * 2))[0];
-	// 	sqrt_result = (d_ctx_b + thread * 12 + 4 * 2 + 2)[0];
 
 	__syncthreads();
 	#pragma unroll 2
@@ -583,14 +576,8 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		PRIO(3)
 
-		// // Most and least significant bits in the divisor are set to 1
-		// // to make sure we don't divide by a small or even number,
-		// // so there are no shortcuts for such cases
 		const uint din = ( (c.x) + (sqrt_result << 1)) | 0x80000001UL;
-		// Quotient may be as large as (2^64 - 1)/(2^31 + 1) = 8589934588 = 2^33 - 4
-		// We drop the highest bit to fit both quotient and remainder in 32 bits
 		uint64_t n_division_result = fast_div_v2(RCP, reinterpret_cast<ulonglong2*>(&c)->y, din);
-		// Use division_result as an input for the square root to prevent parallel implementation in hardware
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
@@ -605,21 +592,15 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		ulonglong2 result_mul = make_ulonglong2(hi, lo);
 
-		// 	ulong2 chunk1 = as_ulong2(SCRATCHPAD_CHUNK(1)) ^ result_mul;
 		chunk1 = v_xor(chunk1, result_mul);
-		// 	ulong2 chunk2 = as_ulong2(SCRATCHPAD_CHUNK(2));
-		// 	result_mul ^= chunk2;
 		result_mul = v_xor(result_mul, chunk2);
 
 		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j1, v_add(chunk1, d), 2);
 		STORE_CHUNK(j1, v_add(chunk2, a), 3);
 
-		// 	SCRATCHPAD_CHUNK(1) = as_uint4(chunk3 + ((ulong2 *)(b_x + 1))[0]);
-		// 	SCRATCHPAD_CHUNK(2) = as_uint4(chunk1 + ((ulong2 *)b_x)[0]);
-		// 	SCRATCHPAD_CHUNK(3) = as_uint4(chunk2 + ((ulong2 *)a)[0]);
 
-	    a = v_add(a, result_mul);
+		a = v_add(a, result_mul);
 
 		long_state[j1] = a;
 		PRIO(0)
