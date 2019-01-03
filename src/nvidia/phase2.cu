@@ -51,12 +51,8 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 			: "=v"(dst0), "=v" (dst1)								\
 			: "r" (adr), "r"(adr+1) ); }
 
-#define AL128(dst, adr) asm volatile("flat_load_dwordx4 %0, %1" : "=v"(dst) : "r"(adr));
-#else
-#define ASYNC_LOAD(dst0, dst1, adr)	{								\
-		asm volatile( "prefetch.global.L1 [%0];" : : "l"(adr) );	\
-		asm volatile( "prefetch.global.L1 [%0+8];" : : "l"(adr) );}
-#endif
+#define AL128(dst, adr) asm volatile(EMIT_WIDE_LOAD("%0, %1") MFLAGS : "=v"(dst) : "r"(adr) : "memory");
+
 
 // Only available for HCC.
 #define ASYNC_STORE(adr, src) {											\
@@ -67,10 +63,13 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 					   "{v20}" (s32[0]), "{v21}" (s32[1]), "{v22}" (s32[2]), "{v23}" (s32[3])); }
 
 
-#define LOAD_CHUNK(dst, offset, n) dst = long_state[offset^n];
-#define STORE_CHUNK(offset, src, n) long_state[offset^n] = src;
+#define AS128(adr, src) { \
+		asm volatile(EMIT_STORE("%0, %1") MFLAGS						\
+					 :													\
+					 : "r" (adr),										\
+					   "r" (*reinterpret_cast<__uint128_t*>(&src))		\
+					 : "memory"); }
 
-// Only available for HCC.
 #define ASYNC_STORE_CHUNK(offset, src, n) {								\
 		uint32_t * const s32 = reinterpret_cast<uint32_t*>(&src);		\
 		int xoff = offset^n;											\
@@ -78,6 +77,14 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 					 :													\
 					 : "r" (long_state + xoff),							\
 					   "{v20}" (s32[0]), "{v21}" (s32[1]), "{v22}" (s32[2]), "{v23}" (s32[3])); }
+#else
+#define ASYNC_LOAD(dst0, dst1, adr)	{								\
+		asm volatile( "prefetch.global.L1 [%0];" : : "l"(adr) );	\
+		asm volatile( "prefetch.global.L1 [%0+8];" : : "l"(adr) );}
+#endif
+
+#define LOAD_CHUNK(dst, offset, n) dst = long_state[offset^n];
+#define STORE_CHUNK(offset, src, n) long_state[offset^n] = src;
 
 
 template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
@@ -143,7 +150,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
-			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
+			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0) >> 4);
 			uint64_t * adr = reinterpret_cast<uint64_t*>(long_state + j1);
 //			uint64_t ldst0, ldst1;
 			ulonglong2 ldst_f;
@@ -177,7 +184,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			ulonglong2 * adr2 = long_state + j0;
 
 #ifdef __HCC__
-			ASYNC_STORE(adr2, d_xored);
+			AS128(adr2, d_xored);
 #else
 			// This load is automatically vectorized by nvcc.
 			ldst_f.x = *adr;
@@ -204,7 +211,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			a_stor.x = a.x;
 
 			a.x ^= y2.x;
-			j0 = SCRATCH_INDEX((a.x & 0x1FFFF0 ) >> 4);
+			j0 = SCRATCH_INDEX((a.x & 0x1FFFF0) >> 4);
 
 			adr = reinterpret_cast<uint64_t*>(long_state + j0);
 			ulonglong2 ldst;
@@ -222,7 +229,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			a_stor32[3] ^= tweak1_2[1];
 
 #ifdef __HCC__
-			ASYNC_STORE(long_state+j1, a_stor);
+			AS128(long_state+j1, a_stor);
 #else
 			long_state[j1] = a_stor;
 #endif
