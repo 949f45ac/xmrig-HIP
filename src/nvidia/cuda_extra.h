@@ -135,9 +135,11 @@ __forceinline__ __device__ uint64_t cuda_ROTL64(const uint64_t value, const int 
 
 #if !__HIP_ARCH_GFX803__
 #define EMIT_LOAD(args) "global_load_dwordx2 " args ", off"
+#define EMIT_WIDE_LOAD(args) "global_load_dwordx4 " args ", off"
 #define EMIT_STORE(args) "global_store_dwordx4 " args ", off"
 #else
 #define EMIT_LOAD(args) "flat_load_dwordx2 " args
+#define EMIT_WIDE_LOAD(args) "flat_load_dwordx4 " args ", off"
 #define EMIT_STORE(args) "flat_store_dwordx4 " args
 #endif
 

@@ -129,6 +129,8 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 	tweak1_2[1] = startNonce + thread;
 	tweak1_2[1] ^= state[49];
 
+	const uint64_t tweak = tweak1_2[0] | (((uint64_t) tweak1_2[1]) << 32);
+
 	ulonglong2 d[2];
 
 	// Do not do memcpy here: it somehow causes the main loop to buffer registers t_t
@@ -222,11 +224,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 			FENCE(t1_64)
 			a.y += (t1_64 * y2.x);
 
-			a_stor.y = a.y;
-
-			uint32_t *  a_stor32 = (uint32_t*) &a_stor;
-			a_stor32[2] ^= tweak1_2[0];
-			a_stor32[3] ^= tweak1_2[1];
+			a_stor.y = a.y ^ tweak;
 
 #ifdef __HCC__
 			AS128(long_state+j1, a_stor);
