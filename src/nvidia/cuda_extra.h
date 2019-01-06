@@ -118,7 +118,7 @@ __forceinline__ __device__ uint64_t cuda_ROTL64(const uint64_t value, const int 
 #define FENCE32(x) asm volatile("v_mov_b32 %0, %1\n\t" : "=v" (x) : "v" (x) : "memory");
 
 #define WAIT_FOR(x, n) asm volatile("s_waitcnt vmcnt(" #n ")\n\t": : "v" (x) : "memory"); FENCE(x)
-#define PRIO(n) asm volatile ("s_setprio 0x" #n ::: "memory");
+#define PRIO(n) asm volatile ("s_nop 0x1" ::: "memory");
 #else
 #define WAIT_FOR(x, n) FENCE(x)
 #define RETIRE(x) ;
