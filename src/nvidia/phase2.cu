@@ -492,7 +492,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	const uint32_t * const __restrict__ sharedMemory = (const uint32_t*) sharedMemWritable;
 
-
 	const int thread = ( hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x );
 
 	if ( thread >= threads )
@@ -533,7 +532,9 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += sqrt_result;
 
 	__syncthreads();
-	// #pragma unroll 4
+#if ONLY_VEGA
+	#pragma unroll 4
+#endif
 	for ( i = 0; i < ( ITER >> 1 ); ++i )
 	{
 		ulonglong2 chunk1, chunk2, chunk3;
@@ -563,7 +564,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		LOAD_CHUNK(chunk1, j1, 1);
 		LOAD_CHUNK(chunk2, j1, 2);
 
-		// PRIO(3);
 		FENCE32(c.x);
 		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
 
@@ -597,7 +597,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t hi = UMUL64HI(t1_64, y2.x);
 		uint64_t lo = t1_64 * y2.x;
 
-
 		ulonglong2 result_mul = make_ulonglong2(hi, lo);
 
 		chunk1 = v_xor(chunk1, result_mul);
@@ -609,7 +608,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		a = v_add(a, result_mul);
 
 		long_state[j1] = a;
-		PRIO(0)
+		PRIO(0);
 
 		a = v_xor(a, y2);
 		j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
