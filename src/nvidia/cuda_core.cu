@@ -80,15 +80,15 @@ __device__ __forceinline__ uint64_t cuda_mul128( uint64_t multiplier, uint64_t m
 template< typename T >
 __device__ __forceinline__ void storeGlobal128AsyncGlc( T* adr, T const & val ) {
 #ifdef __HCC__
-	uint32_t * const val32 = (uint32_t*) &val;
-	asm volatile (EMIT_STORE("%4, v[19:22]") " glc"
-				  :
-				  : "{v19}" (val32[0]), "{v20}" (val32[1]), "{v21}" (val32[2]), "{v22}" (val32[3]), "r" ( adr ));
+	asm volatile(EMIT_STORE("%0, %1") " glc"
+				 :
+				 : "r" (adr),
+				   "r" (*reinterpret_cast<const __uint128_t*>(&val))
+				 : "memory");
 #else
 	*adr = val;
 #endif
 }
-
 
 #undef HEAVY
 
@@ -117,39 +117,56 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 	const int subRaw = ( hipThreadIdx_x & 7 );
 	const int sub = ( hipThreadIdx_x & 7 ) << 2;
 
-	INIT_SHIFT(3)
+	INIT_SHIFT(3);
 
 	uint4 * const long_state = reinterpret_cast<uint4*>(long_state_64) + BASE_OFF(thread, threads);
 
-	const int batchsize = (0x80000 >> (HEAVY ? 1 : 2));
-	const int start = 0;
-	const int end = start + batchsize;
+	const int end = (0x80000 >> (2 + CHU_SHIFT - HEAVY));
 
 	if ( thread >= threads )
 		return;
 
-	uint32_t key[40];
+	uint4 key[10];
 	uint4 text;
 
 	MEMCPY8( key, ctx_key1 + thread * 40, 20 );
 
-	// first round
-	//text = ctx_state[thread * 50 + sub + 16];
-	// text = *reinterpret_cast<uint4*>(ctx_state + thread * 50 + sub + 16);
 	MEMCPY8( &text, ctx_state + thread * 50 + sub + 16, 2 );
-
 	__syncthreads( );
-	// #pragma unroll
-	for ( int i = start; i < end; i += 8 )
-	{
-		cn_aes_pseudo_round_mut( sharedMemory, (uint32_t*) &text, key );
 
-		// int offset = ((thread << 19) + (sub + i) ) / 4;
-		int offset = SCRATCH_INDEX(subRaw + i);
-		storeGlobal128AsyncGlc(long_state + offset, text);
+	const int jump = (1 << (concrete_shift+CHU_SHIFT)) - CHU;
+	int j = subRaw;
+
+	for ( int i = 0; i < end; i++ )
+	{
+		#pragma unroll
+		for (int k = 0; k < (1 << (CHU_SHIFT-3)); k++) {
+			text = v_cn_aes_pseudo_round_mut( sharedMemory, text, key );
+			storeGlobal128AsyncGlc(long_state + j, text);
+			j += 8;
+		}
+
+		j += jump;
 	}
 }
 
+
+#define P3() {															\
+	uint4 l = long_state[j];											\
+	text.x ^= l.x;														\
+	text.y ^= l.y;														\
+	text.z ^= l.z;														\
+	text.w ^= l.w;														\
+																		\
+	text = v_cn_aes_pseudo_round_mut( sharedMemory, text, key );		\
+																		\
+	if (HEAVY) {														\
+		text.x ^= __shfl( text.x, (subRaw+1)&7, 8 );					\
+		text.y ^= __shfl( text.y, (subRaw+1)&7, 8 );					\
+		text.z ^= __shfl( text.z, (subRaw+1)&7, 8 );					\
+		text.w ^= __shfl( text.w, (subRaw+1)&7, 8 );					\
+	}																	\
+	}
 
 #if ENABLE_LAUNCH_BOUNDS
 __launch_bounds__( P13T )
@@ -166,51 +183,38 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	int subRaw = ( hipThreadIdx_x & 7 );
 	int sub = ( hipThreadIdx_x & 7 ) << 2;
 
-	INIT_SHIFT(3)
+	INIT_SHIFT(3);
 
 	const uint4 * __restrict__ long_state = reinterpret_cast<const uint4*>(long_state_64) + BASE_OFF(thread, threads);
-
-	const int batchsize = (0x80000 >> (HEAVY ? 1 : 2));
-	const int start = 0;
-	const int end = start + batchsize;
 
 	if ( thread >= threads )
 		return;
 
-	uint32_t key[40];
+	uint4 key[10];
 	uint4 text;
 
-	// memc_<10>( key, d_ctx_key2 + thread * 40 );
 	MEMCPY8( key, d_ctx_key2 + thread * 40, 20 );
-	// text = *reinterpret_cast<uint4*>(d_ctx_state + thread * 50 + sub + 16);
 	MEMCPY8( &text, d_ctx_state + thread * 50 + sub + 16, 2 );
 
 	__syncthreads( );
-	#pragma unroll 8
-	for ( int i = start; i < end; i += 8 )
+
+	const int jump = (1 << (concrete_shift+CHU_SHIFT));
+	const int end = (0x80000 >> (2 - HEAVY)) << concrete_shift;
+
+	#pragma unroll 4
+	for ( int i = subRaw; i < end; i += jump )
 	{
-		uint4 l = long_state[SCRATCH_INDEX(subRaw+i)];
-		// text ^= l;
-		text.x ^= l.x;
-		text.y ^= l.y;
-		text.z ^= l.z;
-		text.w ^= l.w;
-
-		cn_aes_pseudo_round_mut( sharedMemory, reinterpret_cast<uint32_t*>(&text), key );
-
-		if (HEAVY) {
-			text.x ^= __shfl( text.x, (subRaw+1)&7, 8 );
-			text.y ^= __shfl( text.y, (subRaw+1)&7, 8 );
-			text.z ^= __shfl( text.z, (subRaw+1)&7, 8 );
-			text.w ^= __shfl( text.w, (subRaw+1)&7, 8 );
+		int j = i;
+		#pragma unroll
+		for (int k = 0; k < (1 << (CHU_SHIFT-3)); k++) {
+			P3();
+			j += 8;
 		}
 	}
 
 	MEMCPY8(d_ctx_state + thread * 50 + sub + 16, &text, 2);
 	__syncthreads( );
 }
-
-
 
 
 #define HEAVY (VARIANT == xmrig::VARIANT_XHV)
@@ -395,9 +399,6 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 		return;
     }
 }
-
-#define COMPILE_FOR_VEGA (__HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__)
-#define ONLY_VEGA (COMPILE_FOR_VEGA && !(__HIP_ARCH_GFX803__ || __HIP_ARCH_GFX802__ || __HIP_ARCH_GFX801__ || __HIP_ARCH_GFX701__))
 
 extern "C" void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
 {

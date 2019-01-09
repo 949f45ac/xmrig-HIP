@@ -503,9 +503,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	int i;
     uint32_t j0, j1;
 
-	const int batchsize = ITER >> ( 2 );
-	const int start = 0;
-	const int end = (start + batchsize) * 2;
 
 #define VARIANT (xmrig::VARIANT_2)
 
@@ -529,36 +526,28 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	division_result = *reinterpret_cast<uint64_t*>(ctx_b+8);
 	sqrt_result = *(ctx_b+10);
 
+	ulonglong2 foo = make_ulonglong2(55, 77);
+	foo -= d;
+	foo -= d_old;
+	foo.x += division_result;
+	foo.x += sqrt_result;
+
 	__syncthreads();
 	// #pragma unroll 4
-	for ( i = start; i < end; ++i )
+	for ( i = 0; i < ( ITER >> 1 ); ++i )
 	{
-		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
 		ulonglong2 chunk1, chunk2, chunk3;
+		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
+		LOAD_CHUNK(chunk1, j0, 1);
+		LOAD_CHUNK(chunk2, j0, 2);
+		LOAD_CHUNK(chunk3, j0, 3);
 
-		if (SEC_SHIFT != 6) {
-			LOAD_CHUNK(chunk1, j0, 1);
-			LOAD_CHUNK(chunk2, j0, 2);
-			LOAD_CHUNK(chunk3, j0, 3);
-		}
+		if (SEC_SHIFT < 8) { PRIO(2); }
 
-		if (SEC_SHIFT < 8) PRIO(2);
-
-		uint4 c = make_uint4(0, 0, 0, 0);
 		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
+		uint4 c = cn_aes_single_round(sharedMemory, x32, a4);
 
-		c.x = a4.x ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 		j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
-
-		c.y = a4.y ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
-		c.z = a4.z ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
-		c.w = a4.w ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
-
-		if (SEC_SHIFT == 6) {
-			LOAD_CHUNK(chunk1, j0, 1);
-			LOAD_CHUNK(chunk2, j0, 2);
-			LOAD_CHUNK(chunk3, j0, 3);
-		}
 
 		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j0, v_add(chunk1, d), 2);
@@ -574,29 +563,32 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		LOAD_CHUNK(chunk1, j1, 1);
 		LOAD_CHUNK(chunk2, j1, 2);
 
-
-
-		PRIO(3)
+		// PRIO(3);
 		FENCE32(c.x);
 		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
 
-
-		// // Most and least significant bits in the divisor are set to 1
-		// // to make sure we don't divide by a small or even number,
-		// // so there are no shortcuts for such cases
 		const uint din = (c.x + (sqrt_result << 1)) | 0x80000001UL;
-		if (MIXED_SHIFT) FENCE32(j1);
-		// Quotient may be as large as (2^64 - 1)/(2^31 + 1) = 8589934588 = 2^33 - 4
-		// We drop the highest bit to fit both quotient and remainder in 32 bits
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
-		// Use division_result as an input for the square root to prevent parallel implementation in hardware
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
-
 		FENCE32(n_sqrt_result);
 
+#if ONLY_VEGA
+		uint4 dl = make_uint4(d_old.x, d_old.x >> 32, d_old.y, d_old.y >> 32);
+		asm volatile(
+			"v_add_co_u32_e32  %0, vcc, %8, %4 \n\t"
+			"v_addc_co_u32_e32 %1, vcc, %9, %5, vcc \n\t"
+			"v_add_co_u32_e32  %2, vcc, %10, %6 \n\t"
+			"v_addc_co_u32_e32 %3, vcc, %11, %7, vcc \n\t"
+			: "=v" (dl.x), "=v" (dl.y), "=v" (dl.z), "=v" (dl.w)
+			: "v" ((uint32_t)chunk3.x), "v" ((uint32_t)(chunk3.x >> 32)), "v" ((uint32_t)chunk3.y), "v" ((uint32_t)(chunk3.y>>32)),
+			  "v" (dl.x), "v" (dl.y), "v" (dl.z), "v" (dl.w) : "vcc", "memory");
 
+		reinterpret_cast<uint4*>(long_state)[j1^1] = dl;
+#else
 		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
 		FENCE32(sqrt_result);
+#endif
+
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
 
 		division_result = n_division_result;
@@ -609,13 +601,12 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		ulonglong2 result_mul = make_ulonglong2(hi, lo);
 
 		chunk1 = v_xor(chunk1, result_mul);
-
 		result_mul = v_xor(result_mul, chunk2);
 
 		STORE_CHUNK(j1, v_add(chunk1, d), 2);
 		STORE_CHUNK(j1, v_add(chunk2, a), 3);
 
-	    a = v_add(a, result_mul);
+		a = v_add(a, result_mul);
 
 		long_state[j1] = a;
 		PRIO(0)
@@ -626,4 +617,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		d_old = d;
 		d = *reinterpret_cast<ulonglong2*>(&c);
 	}
+
+	foo -=  d_old;
+	*ctx_a = foo;
 }

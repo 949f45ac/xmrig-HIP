@@ -133,7 +133,10 @@ __forceinline__ __device__ uint64_t cuda_ROTL64(const uint64_t value, const int 
 #endif
 
 
-#if !__HIP_ARCH_GFX803__
+#define COMPILE_FOR_VEGA (__HIP_ARCH_GFX900__ || __HIP_ARCH_GFX906__)
+#define ONLY_VEGA (COMPILE_FOR_VEGA && !(__HIP_ARCH_GFX803__ || __HIP_ARCH_GFX802__ || __HIP_ARCH_GFX801__ || __HIP_ARCH_GFX701__))
+
+#if ONLY_VEGA
 #define EMIT_LOAD(args) "global_load_dwordx2 " args ", off"
 #define EMIT_WIDE_LOAD(args) "global_load_dwordx4 " args ", off"
 #define EMIT_STORE(args) "global_store_dwordx4 " args ", off"
@@ -158,7 +161,7 @@ __device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict
 	const uint nshift_limit_t = (threads >> SEC_SHIFT) << SEC_SHIFT;	\
 	const uint nshift_limit_b = hipGridDim_x - ((threads - nshift_limit_t) << t_s) / hipBlockDim_x;	\
 	const bool over = MIXED_SHIFT && hipBlockIdx_x >= nshift_limit_b;	\
-	const uint concrete_shift = SEC_SHIFT - (over ? MIXED_SHIFT_DOWNDRAFT : 0); \
+	const uint concrete_shift = SEC_SHIFT - over * MIXED_SHIFT_DOWNDRAFT; \
 	const uint sec_size0 = 1 << SEC_SHIFT;								\
 	const uint sec_size1 = 1 << concrete_shift;							\
 

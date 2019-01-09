@@ -272,16 +272,23 @@ static __constant__ uint32_t d_t_fn[1024] =
 #define t_fn2(x) (sharedMemory[512 + (x)])
 #define t_fn3(x) (sharedMemory[768 + (x)])
 
-
 #define round(dummy,y,x,k) \
-	y[0] = (k)[0]  ^ (t_fn0(x[0] & 0xff) ^ t_fn1((x[1] >> 8) & 0xff) ^ t_fn2((x[2] >> 16) & 0xff) ^ t_fn3((x[3] >> 24))); \
-	y[1] = (k)[1]  ^ (t_fn0(x[1] & 0xff) ^ t_fn1((x[2] >> 8) & 0xff) ^ t_fn2((x[3] >> 16) & 0xff) ^ t_fn3((x[0] >> 24))); \
-	y[2] = (k)[2]  ^ (t_fn0(x[2] & 0xff) ^ t_fn1((x[3] >> 8) & 0xff) ^ t_fn2((x[0] >> 16) & 0xff) ^ t_fn3((x[1] >> 24))); \
-	y[3] = (k)[3]  ^ (t_fn0(x[3] & 0xff) ^ t_fn1((x[0] >> 8) & 0xff) ^ t_fn2((x[1] >> 16) & 0xff) ^ t_fn3((x[2] >> 24) ));
+       y[0] = (k)[0]  ^ (t_fn0(x[0] & 0xff) ^ t_fn1((x[1] >> 8) & 0xff) ^ t_fn2((x[2] >> 16) & 0xff) ^ t_fn3((x[3] >> 24))); \
+       y[1] = (k)[1]  ^ (t_fn0(x[1] & 0xff) ^ t_fn1((x[2] >> 8) & 0xff) ^ t_fn2((x[3] >> 16) & 0xff) ^ t_fn3((x[0] >> 24))); \
+       y[2] = (k)[2]  ^ (t_fn0(x[2] & 0xff) ^ t_fn1((x[3] >> 8) & 0xff) ^ t_fn2((x[0] >> 16) & 0xff) ^ t_fn3((x[1] >> 24))); \
+       y[3] = (k)[3]  ^ (t_fn0(x[3] & 0xff) ^ t_fn1((x[0] >> 8) & 0xff) ^ t_fn2((x[1] >> 16) & 0xff) ^ t_fn3((x[2] >> 24) ));
 
-__device__ __forceinline__ static void cn_aes_single_round(const uint32_t * __restrict__ sharedMemory, const uint32_t * __restrict__ in, uint32_t * __restrict__ out, const uint32_t * __restrict__ expandedKey)
+#define v_round(dummy_mem_ptr,out,in,key) \
+	out.x = key.x  ^ (t_fn0(in.x & 0xff) ^ t_fn1((in.y >> 8) & 0xff) ^ t_fn2((in.z >> 16) & 0xff) ^ t_fn3((in.w >> 24))); \
+	out.y = key.y  ^ (t_fn0(in.y & 0xff) ^ t_fn1((in.z >> 8) & 0xff) ^ t_fn2((in.w >> 16) & 0xff) ^ t_fn3((in.x >> 24))); \
+	out.z = key.z  ^ (t_fn0(in.z & 0xff) ^ t_fn1((in.w >> 8) & 0xff) ^ t_fn2((in.x >> 16) & 0xff) ^ t_fn3((in.y >> 24))); \
+	out.w = key.w  ^ (t_fn0(in.w & 0xff) ^ t_fn1((in.x >> 8) & 0xff) ^ t_fn2((in.y >> 16) & 0xff) ^ t_fn3((in.z >> 24) ));
+
+__device__ __forceinline__ static uint4 cn_aes_single_round(const uint32_t * __restrict__ sharedMemory, const uint4 in, const uint4 expandedKey)
 {
-	round(sharedMemory, out, in, expandedKey);
+	uint4 out;
+	v_round(sharedMemory, out, in, expandedKey);
+	return out;
 }
 
 __device__ __forceinline__ static void cn_aes_pseudo_round_mut(const uint32_t * __restrict__ sharedMemory, uint32_t * __restrict__ val, const uint32_t * __restrict__ expandedKey)
@@ -297,6 +304,23 @@ __device__ __forceinline__ static void cn_aes_pseudo_round_mut(const uint32_t * 
 	round(sharedMemory, val, b1, expandedKey + 7 * N_COLS);
 	round(sharedMemory, b1, val, expandedKey + 8 * N_COLS);
 	round(sharedMemory, val, b1, expandedKey + 9 * N_COLS);
+}
+
+
+__device__ __forceinline__ static uint4 v_cn_aes_pseudo_round_mut(const uint32_t * __restrict__ sharedMemory, uint4 val, const uint4 * __restrict__ expandedKey)
+{
+	uint4 b1;
+	v_round(sharedMemory, b1, val, expandedKey[0]);
+	v_round(sharedMemory, val, b1, expandedKey[1]);
+	v_round(sharedMemory, b1, val, expandedKey[2]);
+	v_round(sharedMemory, val, b1, expandedKey[3]);
+	v_round(sharedMemory, b1, val, expandedKey[4]);
+	v_round(sharedMemory, val, b1, expandedKey[5]);
+	v_round(sharedMemory, b1, val, expandedKey[6]);
+	v_round(sharedMemory, val, b1, expandedKey[7]);
+	v_round(sharedMemory, b1, val, expandedKey[8]);
+	v_round(sharedMemory, val, b1, expandedKey[9]);
+	return val;
 }
 
 __device__ __forceinline__ static void cn_aes_gpu_init(uint32_t *sharedMemory)
