@@ -532,9 +532,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += sqrt_result;
 
 	__syncthreads();
-#if ONLY_VEGA
-	#pragma unroll 4
-#endif
 	for ( i = 0; i < ( ITER >> 1 ); ++i )
 	{
 		ulonglong2 chunk1, chunk2, chunk3;
@@ -572,7 +569,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 		FENCE32(n_sqrt_result);
 
-#if ONLY_VEGA
+#if 0 // if ONLY_VEGA -- Only faster with unroll=4 and we cannot #if the unroll
 		uint4 dl = make_uint4(d_old.x, d_old.x >> 32, d_old.y, d_old.y >> 32);
 		asm volatile(
 			"v_add_co_u32_e32  %0, vcc, %8, %4 \n\t"
