@@ -532,6 +532,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += sqrt_result;
 
 	__syncthreads();
+	#pragma unroll 2
 	for ( i = 0; i < ( ITER >> 1 ); ++i )
 	{
 		ulonglong2 chunk1, chunk2, chunk3;
