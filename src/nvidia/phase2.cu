@@ -497,11 +497,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	if ( thread >= threads )
 		return;
 
-	INIT_SHIFT(0)
-
-	int i;
-    uint32_t j0, j1;
-
+	INIT_SHIFT(0);
 
 #define VARIANT (xmrig::VARIANT_2)
 
@@ -513,17 +509,10 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	uint32_t * ctx_b = d_ctx_b + thread * 12;
 
 	ulonglong2 a = *reinterpret_cast<ulonglong2*>(ctx_a);
-
-	j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
-
-	uint64_t division_result;
-	uint32_t sqrt_result;
-
-
 	ulonglong2 d = reinterpret_cast<ulonglong2*>(ctx_b)[0];
 	ulonglong2 d_old = reinterpret_cast<ulonglong2*>(ctx_b)[1];
-	division_result = *reinterpret_cast<uint64_t*>(ctx_b+8);
-	sqrt_result = *(ctx_b+10);
+	uint64_t division_result = reinterpret_cast<uint64_t*>(ctx_b)[4];
+	uint32_t sqrt_result = ctx_b[10];
 
 	ulonglong2 foo = make_ulonglong2(55, 77);
 	foo -= d;
@@ -533,8 +522,9 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	__syncthreads();
 	#pragma unroll 2
-	for ( i = 0; i < ( ITER >> 1 ); ++i )
+	for ( int i = 0; i < ( ITER >> 1 ); ++i )
 	{
+		uint32_t j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
 		ulonglong2 chunk1, chunk2, chunk3;
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
 		LOAD_CHUNK(chunk1, j0, 1);
@@ -546,7 +536,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 		uint4 c = cn_aes_single_round(sharedMemory, x32, a4);
 
-		j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
+		uint32_t j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
 
 		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j0, v_add(chunk1, d), 2);
@@ -609,7 +599,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		PRIO(0);
 
 		a = v_xor(a, y2);
-		j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
 
 		d_old = d;
 		d = *reinterpret_cast<ulonglong2*>(&c);
