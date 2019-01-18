@@ -217,10 +217,10 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 }
 
 
-#define HEAVY (VARIANT == xmrig::VARIANT_XHV)
+// #define HEAVY (VARIANT == xmrig::VARIANT_XHV)
 
 // extern "C"
-template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<bool HEAVY, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
 	dim3 grid, block;
@@ -366,33 +366,48 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 
     using namespace xmrig;
 
-    if (algo == CRYPTONIGHT || algo == CRYPTONIGHT_HEAVY) {
+    if (algo == CRYPTONIGHT) {
         switch (variant) {
         case VARIANT_2:
-            cryptonight_core_cpu_hash<VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            cryptonight_core_cpu_hash<false, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
         case VARIANT_1:
-            cryptonight_core_cpu_hash<VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            cryptonight_core_cpu_hash<false, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
         case VARIANT_XTL:
-            cryptonight_core_cpu_hash<VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            cryptonight_core_cpu_hash<false, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
         case VARIANT_MSR:
-            cryptonight_core_cpu_hash<VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-            break;
-
-        case VARIANT_XHV:
-            cryptonight_core_cpu_hash<VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            cryptonight_core_cpu_hash<false, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
         default:
-            printf("Only CN1, XTL, MSR, XHV supported for now, but you requested: %d\n.", variant);
+            printf("Only CN1, CN2, XTL, MSR supported for cn normal, but you requested: %d\n.", variant);
 			exit(1);
         }
     }
+	else if (algo == CRYPTONIGHT_HEAVY) {
+		switch (variant) {
+		case VARIANT_0:
+            cryptonight_core_cpu_hash<true, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
+
+        // case VARIANT_TUBE:
+        //     cryptonight_core_cpu_hash<true, VARIANT_TUBE, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+        //     break;
+
+        case VARIANT_XHV:
+            cryptonight_core_cpu_hash<true, VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
+
+        default:
+            printf("Only CN0, TUBE, XHV supported for cn/heavy, but you requested: %d\n.", variant);
+			exit(1);
+        }
+	}
     else {
 		printf("Only CN1, XTL, MSR, XHV supported for now.");
 		exit(1);

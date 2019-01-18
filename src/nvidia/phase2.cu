@@ -86,6 +86,7 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 #define LOAD_CHUNK(dst, offset, n) dst = long_state[offset^n];
 #define STORE_CHUNK(offset, src, n) long_state[offset^n] = src;
 
+#define HEAVY 0
 
 template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 #ifdef __HCC__
@@ -248,12 +249,12 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 	}
 }
 
-#define IS_V1 0
-#define CN_HEAVY 1
+#undef HEAVY
+#define HEAVY 1
 
 template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 #ifdef __HCC__
-__launch_bounds__( 16 )
+__launch_bounds__( 32 )
 #else
 //__launch_bounds__( 64 )
 #endif
@@ -291,6 +292,8 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 	tweak1_2[0] ^= state[48];
 	tweak1_2[1] = startNonce + thread;
 	tweak1_2[1] ^= state[49];
+
+	const uint64_t tweak = tweak1_2[0] | (((uint64_t) tweak1_2[1]) << 32);
 
 	ulonglong2 d[2];
 
@@ -330,7 +333,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			d_xored.x ^= d[1].x;
 			d_xored.y ^= d[1].y;
 
-			if (0) {
+			if (VARIANT == xmrig::VARIANT_TUBE) {
 				uint64_t fork_7 = d_xored.y;
 
 				uint8_t index = ((fork_7 >> 26) & 12) | ((fork_7 >> 23) & 2);
@@ -391,10 +394,8 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			a_stor.y = a.y;
 
-			if (0) {
-				uint32_t *  a_stor32 = (uint32_t*) &a_stor;
-				a_stor32[2] ^= tweak1_2[0];
-				a_stor32[3] ^= tweak1_2[1];
+			if (VARIANT == xmrig::VARIANT_TUBE) {
+				a_stor.y ^= tweak;
 			}
 
 #ifdef __HCC__
@@ -418,8 +419,11 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			int32_t d = same_adr ? (int32_t) a_stor.y : d_;
 
 			int64_t q = fast_div_heavy(n, d | 0x5);
+			if (VARIANT == xmrig::VARIANT_XHV) {
+				d = ~d;
+			}
 
-			uint64_t nnn = (~d) ^ q;
+			uint64_t nnn = d ^ q;
 			j0 = SCRATCH_INDEX((nnn & 0x3FFFF0) >> 4);
 
 			x64.y = long_state[j0].y;
@@ -441,7 +445,8 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 }
 
-#undef CN_HEAVY
+#undef HEAVY
+#define HEAVY 0
 
 __device__ __forceinline__ ulonglong2
 v_add(ulonglong2 a, ulonglong2 b)
@@ -595,3 +600,5 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo -=  d_old;
 	*ctx_a = foo;
 }
+
+#undef HEAVY
