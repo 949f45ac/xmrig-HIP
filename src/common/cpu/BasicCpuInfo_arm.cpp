@@ -21,78 +21,27 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef XMRIG_ID_H
-#define XMRIG_ID_H
-
-
 #include <string.h>
+#include <thread>
 
 
-namespace xmrig {
+#include "common/cpu/BasicCpuInfo.h"
 
 
-class Id
+xmrig::BasicCpuInfo::BasicCpuInfo() :
+    m_aes(false),
+    m_brand(),
+    m_threads(std::thread::hardware_concurrency())
 {
-public:
-    inline Id() :
-        m_data()
-    {
-    }
+    memcpy(m_brand, "Unknown", 7);
+
+#   if __ARM_FEATURE_CRYPTO
+    m_aes = true;
+#   endif
+}
 
 
-    inline Id(const char *id, size_t sizeFix = 0)
-    {
-        setId(id, sizeFix);
-    }
-
-
-    inline bool operator==(const Id &other) const
-    {
-        return memcmp(m_data, other.m_data, sizeof(m_data)) == 0;
-    }
-
-
-    inline bool operator!=(const Id &other) const
-    {
-        return memcmp(m_data, other.m_data, sizeof(m_data)) != 0;
-    }
-
-
-    Id &operator=(const Id &other)
-    {
-        memcpy(m_data, other.m_data, sizeof(m_data));
-
-        return *this;
-    }
-
-
-    inline bool setId(const char *id, size_t sizeFix = 0)
-    {
-        memset(m_data, 0, sizeof(m_data));
-        if (!id) {
-            return false;
-        }
-
-        const size_t size = strlen(id);
-        if (size >= sizeof(m_data)) {
-            return false;
-        }
-
-        memcpy(m_data, id, size - sizeFix);
-        return true;
-    }
-
-
-    inline const char *data() const { return m_data; }
-    inline bool isValid() const     { return *m_data != '\0'; }
-
-
-private:
-    char m_data[64];
-};
-
-
-} /* namespace xmrig */
-
-
-#endif /* XMRIG_ID_H */
+size_t xmrig::BasicCpuInfo::optimalThreadsCount(size_t memSize, int maxCpuUsage) const
+{
+    return threads();
+}

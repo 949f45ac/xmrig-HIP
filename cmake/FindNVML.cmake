@@ -96,7 +96,7 @@ if( CMAKE_SYSTEM_NAME STREQUAL "Windows"  )
     set( NVML_LIB_PATHS "${CUDA_TOOLKIT_ROOT_DIR}/lib/x64" )
     set( NVML_INC_PATHS ${CUDA_INCLUDE_DIRS} )
   endif()
-elseif(0)
+else()
   set(NVML_NAMES nvidia-ml)
 
   set( NVML_LIB_PATHS /usr/lib64 )

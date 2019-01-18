@@ -26,9 +26,9 @@
 #include <assert.h>
 
 
+#include "common/cpu/Cpu.h"
 #include "common/net/Job.h"
 #include "common/utils/mm_malloc.h"
-#include "Cpu.h"
 #include "crypto/CryptoNight.h"
 #include "crypto/CryptoNight_test.h"
 #include "crypto/CryptoNight_x86.h"
@@ -51,7 +51,7 @@ bool CryptoNight::hash(const Job &job, JobResult &result, cryptonight_ctx *ctx)
 bool CryptoNight::init(xmrig::Algo algorithm)
 {
     m_algorithm = algorithm;
-    m_av        = Cpu::hasAES() ? xmrig::VERIFY_HW_AES : xmrig::VERIFY_SOFT_AES;
+    m_av        = xmrig::Cpu::info()->hasAES() ? xmrig::VERIFY_HW_AES : xmrig::VERIFY_SOFT_AES;
 
     const bool valid = selfTest();
     freeCtx(m_ctx);
@@ -93,6 +93,9 @@ CryptoNight::cn_hash_fun CryptoNight::fn(xmrig::Algo algorithm, xmrig::AlgoVerif
         cryptonight_single_hash<CRYPTONIGHT, false, VARIANT_2>,
         cryptonight_single_hash<CRYPTONIGHT, true,  VARIANT_2>,
 
+        cryptonight_single_hash<CRYPTONIGHT, false, VARIANT_HALF>,
+        cryptonight_single_hash<CRYPTONIGHT, true,  VARIANT_HALF>,
+
 #       ifndef XMRIG_NO_AEON
         cryptonight_single_hash<CRYPTONIGHT_LITE, false, VARIANT_0>,
         cryptonight_single_hash<CRYPTONIGHT_LITE, true,  VARIANT_0>,
@@ -107,12 +110,13 @@ CryptoNight::cn_hash_fun CryptoNight::fn(xmrig::Algo algorithm, xmrig::AlgoVerif
         nullptr, nullptr, // VARIANT_XAO
         nullptr, nullptr, // VARIANT_RTO
         nullptr, nullptr, // VARIANT_2
+        nullptr, nullptr, // VARIANT_HALF
 #       else
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr,
 #       endif
 
 #       ifndef XMRIG_NO_SUMO
@@ -133,12 +137,13 @@ CryptoNight::cn_hash_fun CryptoNight::fn(xmrig::Algo algorithm, xmrig::AlgoVerif
         nullptr, nullptr, // VARIANT_XAO
         nullptr, nullptr, // VARIANT_RTO
         nullptr, nullptr, // VARIANT_2
+        nullptr, nullptr, // VARIANT_HALF
 #       else
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr
+        nullptr, nullptr, nullptr, nullptr,
 #       endif
     };
 
@@ -179,13 +184,14 @@ bool CryptoNight::selfTest() {
     m_ctx = createCtx(m_algorithm);
 
     if (m_algorithm == xmrig::CRYPTONIGHT) {
-        return verify(VARIANT_0,   test_output_v0)  &&
-               verify(VARIANT_1,   test_output_v1)  &&
-               verify(VARIANT_2,   test_output_v2)  &&
-               verify(VARIANT_XTL, test_output_xtl) &&
-               verify(VARIANT_MSR, test_output_msr) &&
-               verify(VARIANT_XAO, test_output_xao) &&
-               verify(VARIANT_RTO, test_output_rto);
+        return verify(VARIANT_0,    test_output_v0)  &&
+               verify(VARIANT_1,    test_output_v1)  &&
+               verify(VARIANT_2,    test_output_v2)  &&
+               verify(VARIANT_XTL,  test_output_xtl) &&
+               verify(VARIANT_MSR,  test_output_msr) &&
+               verify(VARIANT_XAO,  test_output_xao) &&
+               verify(VARIANT_RTO,  test_output_rto) &&
+               verify(VARIANT_HALF, test_output_half);
     }
 
 #   ifndef XMRIG_NO_AEON

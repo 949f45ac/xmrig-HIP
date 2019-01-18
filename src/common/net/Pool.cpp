@@ -6,7 +6,7 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2018      SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@
 
 Pool::Pool() :
     m_nicehash(false),
+    m_tls(false),
     m_keepAlive(0),
     m_port(kDefaultPort)
 {
@@ -65,6 +66,7 @@ Pool::Pool() :
  */
 Pool::Pool(const char *url) :
     m_nicehash(false),
+    m_tls(false),
     m_keepAlive(0),
     m_port(kDefaultPort)
 {
@@ -72,8 +74,9 @@ Pool::Pool(const char *url) :
 }
 
 
-Pool::Pool(const char *host, uint16_t port, const char *user, const char *password, int keepAlive, bool nicehash) :
+Pool::Pool(const char *host, uint16_t port, const char *user, const char *password, int keepAlive, bool nicehash, bool tls) :
     m_nicehash(nicehash),
+    m_tls(tls),
     m_keepAlive(keepAlive),
     m_port(port),
     m_host(host),
@@ -114,15 +117,17 @@ bool Pool::isCompatible(const xmrig::Algorithm &algorithm) const
 
 bool Pool::isEqual(const Pool &other) const
 {
-    return (m_nicehash     == other.m_nicehash
-            && m_keepAlive == other.m_keepAlive
-            && m_port      == other.m_port
-            && m_algorithm == other.m_algorithm
-            && m_host      == other.m_host
-            && m_password  == other.m_password
-            && m_rigId     == other.m_rigId
-            && m_url       == other.m_url
-            && m_user      == other.m_user);
+    return (m_nicehash       == other.m_nicehash
+            && m_tls         == other.m_tls
+            && m_keepAlive   == other.m_keepAlive
+            && m_port        == other.m_port
+            && m_algorithm   == other.m_algorithm
+            && m_fingerprint == other.m_fingerprint
+            && m_host        == other.m_host
+            && m_password    == other.m_password
+            && m_rigId       == other.m_rigId
+            && m_url         == other.m_url
+            && m_user        == other.m_user);
 }
 
 
@@ -134,7 +139,13 @@ bool Pool::parse(const char *url)
     const char *base = url;
 
     if (p) {
-        if (strncasecmp(url, "stratum+tcp://", 14)) {
+        if (strncasecmp(url, "stratum+tcp://", 14) == 0) {
+            m_tls = false;
+        }
+        else if (strncasecmp(url, "stratum+ssl://", 14) == 0) {
+            m_tls = true;
+        }
+        else {
             return false;
         }
 
@@ -220,6 +231,9 @@ rapidjson::Value Pool::toJSON(rapidjson::Document &doc) const
         obj.AddMember("variant", StringRef(m_algorithm.variantName()), allocator);
         break;
     }
+
+    obj.AddMember("tls",             isTLS(), allocator);
+    obj.AddMember("tls-fingerprint", fingerprint() ? Value(StringRef(fingerprint())).Move() : Value(kNullType).Move(), allocator);
 
     return obj;
 }
@@ -308,23 +322,39 @@ void Pool::adjustVariant(const xmrig::Variant variantHint)
         m_nicehash  = true;
         bool valid  = true;
 
-        if (m_host.contains("cryptonight.") && m_port == 3355) {
-            valid = m_algorithm.algo() == CRYPTONIGHT;
+        switch (m_port) {
+        case 3355:
+        case 33355:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonight.");
             m_algorithm.setVariant(VARIANT_0);
-        }
-        else if (m_host.contains("cryptonightv7.") && m_port == 3363) {
-            valid = m_algorithm.algo() == CRYPTONIGHT;
+            break;
+
+        case 3363:
+        case 33363:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonightv7.");
             m_algorithm.setVariant(VARIANT_1);
-        }
-        else if (m_host.contains("cryptonightheavy.") && m_port == 3364) {
-            valid = m_algorithm.algo() == CRYPTONIGHT_HEAVY;
+            break;
+
+        case 3364:
+            valid = m_algorithm.algo() == CRYPTONIGHT_HEAVY && m_host.contains("cryptonightheavy.");
             m_algorithm.setVariant(VARIANT_0);
+            break;
+
+        case 3367:
+        case 33367:
+            valid = m_algorithm.algo() == CRYPTONIGHT && m_host.contains("cryptonightv8.");
+            m_algorithm.setVariant(VARIANT_2);
+            break;
+
+        default:
+            break;
         }
 
         if (!valid) {
             m_algorithm.setAlgo(INVALID_ALGO);
         }
 
+        m_tls = m_port > 33000;
         return;
     }
 
@@ -335,7 +365,7 @@ void Pool::adjustVariant(const xmrig::Variant variantHint)
 
         if (m_host.contains("xmr.pool.")) {
             valid = m_algorithm.algo() == CRYPTONIGHT;
-            m_algorithm.setVariant(m_port == 45700 ? VARIANT_1 : VARIANT_0);
+            m_algorithm.setVariant(m_port == 45700 ? VARIANT_AUTO : VARIANT_0);
         }
         else if (m_host.contains("aeon.pool.") && m_port == 45690) {
             valid = m_algorithm.algo() == CRYPTONIGHT_LITE;
@@ -381,13 +411,14 @@ void Pool::rebuild()
 #   ifndef XMRIG_PROXY_PROJECT
     addVariant(xmrig::VARIANT_2);
     addVariant(xmrig::VARIANT_1);
-    // addVariant(xmrig::VARIANT_0);
+    addVariant(xmrig::VARIANT_0);
+    addVariant(xmrig::VARIANT_HALF);
     addVariant(xmrig::VARIANT_XTL);
-    // addVariant(xmrig::VARIANT_TUBE);
+    addVariant(xmrig::VARIANT_TUBE);
     addVariant(xmrig::VARIANT_MSR);
     addVariant(xmrig::VARIANT_XHV);
-    // addVariant(xmrig::VARIANT_XAO);
-    // addVariant(xmrig::VARIANT_RTO);
+    addVariant(xmrig::VARIANT_XAO);
+    addVariant(xmrig::VARIANT_RTO);
     addVariant(xmrig::VARIANT_AUTO);
 #   endif
 }

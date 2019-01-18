@@ -32,6 +32,11 @@
 #endif
 
 
+#ifndef XMRIG_NO_TLS
+#   include <openssl/opensslv.h>
+#endif
+
+
 #include "common/config/ConfigLoader.h"
 #include "common/config/ConfigWatcher.h"
 #include "common/interfaces/IConfig.h"
@@ -45,6 +50,7 @@
 #include "rapidjson/filereadstream.h"
 
 
+bool xmrig::ConfigLoader::m_done                         = false;
 xmrig::ConfigWatcher *xmrig::ConfigLoader::m_watcher     = nullptr;
 xmrig::IConfigCreator *xmrig::ConfigLoader::m_creator    = nullptr;
 xmrig::IWatcherListener *xmrig::ConfigLoader::m_listener = nullptr;
@@ -278,12 +284,16 @@ void xmrig::ConfigLoader::parseJSON(xmrig::IConfig *config, const struct option 
 
 void xmrig::ConfigLoader::showUsage()
 {
+    m_done = true;
+
     printf(usage);
 }
 
 
 void xmrig::ConfigLoader::showVersion()
 {
+    m_done = true;
+
     printf(APP_NAME " " APP_VERSION "\n built on " __DATE__
 
 #   if defined(__clang__)
@@ -313,6 +323,13 @@ void xmrig::ConfigLoader::showVersion()
     printf("\nlibuv/%s\n", uv_version_string());
 
 #   ifndef XMRIG_NO_HTTPD
-    printf("libmicrohttpd/%s\n", MHD_get_version());
+    printf("microhttpd/%s\n", MHD_get_version());
+#   endif
+
+#   if !defined(XMRIG_NO_TLS) && defined(OPENSSL_VERSION_TEXT)
+    {
+        constexpr const char *v = OPENSSL_VERSION_TEXT + 8;
+        printf("OpenSSL/%.*s\n", static_cast<int>(strchr(v, ' ') - v), v);
+    }
 #   endif
 }

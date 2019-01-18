@@ -3,6 +3,11 @@ if (CMAKE_CXX_COMPILER_ID MATCHES MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 endif()
 
+option(XMR-STAK_LARGEGRID "Support large CUDA block count > 128" ON)
+if(XMR-STAK_LARGEGRID)
+    add_definitions("-DXMR_STAK_LARGEGRID=${XMR-STAK_LARGEGRID}")
+endif()
+
 set(DEVICE_COMPILER "nvcc")
 set(CUDA_COMPILER "${DEVICE_COMPILER}" CACHE STRING "Select the device compiler")
 
@@ -114,17 +119,17 @@ endif()
 
 set(CUDA_SOURCES
     src/nvidia/cryptonight.h
-    src/nvidia/cuda_extra.h
     src/nvidia/cuda_aes.hpp
     src/nvidia/cuda_blake.hpp
+    src/nvidia/cuda_core.cu
     src/nvidia/cuda_device.hpp
+    src/nvidia/cuda_extra.cu
+    src/nvidia/cuda_extra.h
+    src/nvidia/cuda_fast_int_math_v2.hpp
     src/nvidia/cuda_groestl.hpp
     src/nvidia/cuda_jh.hpp
     src/nvidia/cuda_keccak.hpp
     src/nvidia/cuda_skein.hpp
-    src/nvidia/cuda_core.cu
-    src/nvidia/cuda_extra.cu
-	src/nvidia/phase2.cu
 )
 
 if("${CUDA_COMPILER}" STREQUAL "clang")

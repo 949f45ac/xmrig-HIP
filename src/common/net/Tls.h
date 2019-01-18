@@ -21,78 +21,42 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef XMRIG_ID_H
-#define XMRIG_ID_H
+#ifndef XMRIG_CLIENT_TLS_H
+#define XMRIG_CLIENT_TLS_H
 
 
-#include <string.h>
+#include <openssl/ssl.h>
 
 
-namespace xmrig {
+#include "common/net/Client.h"
 
 
-class Id
+class Client::Tls
 {
 public:
-    inline Id() :
-        m_data()
-    {
-    }
+    Tls(Client *client);
+    ~Tls();
 
-
-    inline Id(const char *id, size_t sizeFix = 0)
-    {
-        setId(id, sizeFix);
-    }
-
-
-    inline bool operator==(const Id &other) const
-    {
-        return memcmp(m_data, other.m_data, sizeof(m_data)) == 0;
-    }
-
-
-    inline bool operator!=(const Id &other) const
-    {
-        return memcmp(m_data, other.m_data, sizeof(m_data)) != 0;
-    }
-
-
-    Id &operator=(const Id &other)
-    {
-        memcpy(m_data, other.m_data, sizeof(m_data));
-
-        return *this;
-    }
-
-
-    inline bool setId(const char *id, size_t sizeFix = 0)
-    {
-        memset(m_data, 0, sizeof(m_data));
-        if (!id) {
-            return false;
-        }
-
-        const size_t size = strlen(id);
-        if (size >= sizeof(m_data)) {
-            return false;
-        }
-
-        memcpy(m_data, id, size - sizeFix);
-        return true;
-    }
-
-
-    inline const char *data() const { return m_data; }
-    inline bool isValid() const     { return *m_data != '\0'; }
-
+    bool handshake();
+    bool send(const char *data, size_t size);
+    const char *fingerprint() const;
+    const char *version() const;
+    void read(const char *data, size_t size);
 
 private:
-    char m_data[64];
+    bool send();
+    bool verify(X509 *cert);
+    bool verifyFingerprint(X509 *cert);
+
+    BIO *m_readBio;
+    BIO *m_writeBio;
+    bool m_ready;
+    char m_buf[1024 * 2];
+    char m_fingerprint[32 * 2 + 8];
+    Client *m_client;
+    SSL *m_ssl;
+    SSL_CTX *m_ctx;
 };
 
 
-} /* namespace xmrig */
-
-
-#endif /* XMRIG_ID_H */
+#endif /* XMRIG_CLIENT_TLS_H */

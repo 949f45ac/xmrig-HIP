@@ -42,8 +42,10 @@ public:
     Job(int poolId, bool nicehash, const xmrig::Algorithm &algorithm, const xmrig::Id &clientId);
     ~Job();
 
+    bool isEqual(const Job &other) const;
     bool setBlob(const char *blob);
     bool setTarget(const char *target);
+    void setAlgorithm(const char *algo);
 
     inline bool isNicehash() const                    { return m_nicehash; }
     inline bool isValid() const                       { return m_size > 0 && m_diff > 0; }
@@ -60,7 +62,6 @@ public:
     inline uint32_t diff() const                      { return static_cast<uint32_t>(m_diff); }
     inline uint64_t target() const                    { return m_target; }
     inline void reset()                               { m_size = 0; m_diff = 0; }
-    inline void setAlgorithm(const char *algo)        { m_algorithm.parseAlgorithm(algo); }
     inline void setClientId(const xmrig::Id &id)      { m_clientId = id; }
     inline void setPoolId(int poolId)                 { m_poolId = poolId; }
     inline void setThreadId(int threadId)             { m_threadId = threadId; }
@@ -81,8 +82,8 @@ public:
     static char *toHex(const unsigned char* in, unsigned int len);
 #   endif
 
-    bool operator==(const Job &other) const;
-    bool operator!=(const Job &other) const;
+    inline bool operator==(const Job &other) const { return isEqual(other); }
+    inline bool operator!=(const Job &other) const { return !isEqual(other); }
 
 private:
     xmrig::Variant variant() const;
