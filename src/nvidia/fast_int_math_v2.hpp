@@ -152,7 +152,6 @@ __device__ __forceinline__ int64_t fast_div_heavy(int64_t _a, int32_t _b)
 	float rcp;
 #ifdef __HCC__
 	rcp = __llvm_amdgcn_rcp_f32(b_float);
-	// asm("V_RCP_F32 %0, %1\n\t" : "=v"(rcp) : "v"(b_float));
 #else
 	asm("rcp.approx.f32 %0, %1;" : "=f"(rcp) : "f"(b_float));
 #endif
