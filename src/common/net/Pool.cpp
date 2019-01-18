@@ -411,14 +411,14 @@ void Pool::rebuild()
 #   ifndef XMRIG_PROXY_PROJECT
     addVariant(xmrig::VARIANT_2);
     addVariant(xmrig::VARIANT_1);
-    addVariant(xmrig::VARIANT_0);
+    // addVariant(xmrig::VARIANT_0);
     addVariant(xmrig::VARIANT_HALF);
     addVariant(xmrig::VARIANT_XTL);
-    addVariant(xmrig::VARIANT_TUBE);
+    // addVariant(xmrig::VARIANT_TUBE);
     addVariant(xmrig::VARIANT_MSR);
     addVariant(xmrig::VARIANT_XHV);
-    addVariant(xmrig::VARIANT_XAO);
-    addVariant(xmrig::VARIANT_RTO);
+    // addVariant(xmrig::VARIANT_XAO);
+    // addVariant(xmrig::VARIANT_RTO);
     addVariant(xmrig::VARIANT_AUTO);
 #   endif
 }

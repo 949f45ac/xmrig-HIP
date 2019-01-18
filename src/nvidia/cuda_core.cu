@@ -282,15 +282,15 @@ void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 	printf("Starting run for nonce %d\n", nonce);
 #endif
 
-	if (VARIANT == xmrig::VARIANT_2) {
+	if (VARIANT == xmrig::VARIANT_2 || VARIANT == xmrig::VARIANT_HALF) {
 #ifdef __HIP_PLATFORM_NVCC__
-		cryptonight_core_gpu_phase2_monero_v8<MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
+		cryptonight_core_gpu_phase2_monero_v8<VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
 			ctx->d_long_state,
 			ctx->d_ctx_a,
 			ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 #else
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase2_monero_v8<MIXED_SHIFT, SEC_SHIFT>,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase2_monero_v8<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
 						   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 						   ctx->d_long_state,
 						   ctx->d_ctx_a,
@@ -374,6 +374,10 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 
         case VARIANT_1:
             cryptonight_core_cpu_hash<VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
+
+        case VARIANT_HALF:
+            cryptonight_core_cpu_hash<VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
         case VARIANT_XTL:
