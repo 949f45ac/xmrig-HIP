@@ -348,8 +348,7 @@ void Workers::onResult(uv_async_t *)
                 JobResult result(job);
 
                 if (CryptoNight::hash(job, result, ctx)) {
-                    // baton->results.push_back(result);
-					LOG_ERR("THREAD #%d PSEUDO RIGHT", baton->jobs[0].threadId());
+                    baton->results.push_back(result);
                 }
                 else {
                     baton->errors++;

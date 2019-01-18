@@ -312,6 +312,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = make_uint4(x64.x, x64.x >> 32, x64.y, x64.y >> 32);
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32 = ~x32; }
 			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
@@ -323,12 +324,12 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			ASYNC_LOAD(ldst_f.x, ldst_f.y, adr);
 			PRIO(1);
 
-			// if (VARIANT == xmrig::VARIANT_TUBE) { x32.x ^= c.x; }
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.x ^= c.x; }
 
 			c.y = (a.x >> 32) ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
-			// if (VARIANT == xmrig::VARIANT_TUBE) { x32.y ^= c.y; }
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.y ^= c.y; }
 			c.z = ((uint32_t) a.y) ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
-			// if (VARIANT == xmrig::VARIANT_TUBE) { x32.z ^= c.z; }
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.z ^= c.z; }
 			c.w = (a.y >> 32) ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
 
 			d[x] = *reinterpret_cast<ulonglong2*>(&c);
