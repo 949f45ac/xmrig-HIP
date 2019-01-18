@@ -70,7 +70,7 @@ int cuda_get_devicecount();
 int cuda_get_deviceinfo(nvid_ctx *ctx, xmrig::Algo algo);
 int cryptonight_gpu_init(nvid_ctx *ctx, xmrig::Algo algo);
 /* int cryptonight_extra_cpu_init(nvid_ctx *ctx); */
-int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx);
+int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx, xmrig::Algo algo);
 void cryptonight_extra_cpu_set_data(nvid_ctx* ctx, const void *data, uint32_t len);
 void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heavy);
 //void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t startNonce);

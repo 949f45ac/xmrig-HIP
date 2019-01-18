@@ -273,7 +273,7 @@ extern "C" void cryptonight_extra_cpu_set_data( nvid_ctx* ctx, const void *data,
 	exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 }
 
-extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx)
+extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx, xmrig::Algo algo)
 {
 	hipError_t err;
 	err = hipSetDevice(ctx->device_id);
@@ -304,7 +304,7 @@ extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx)
    ctx->d_ctx_state += 50 * wsize_off;
    ctx->d_ctx_state_p1 += 50 * wsize_off;
 
-   uint f = 1;
+   uint f = algo == xmrig::CRYPTONIGHT_HEAVY ? 2 : 1;
    ctx->d_long_state += ((size_t)MEMORY * wsize_off * f) / sizeof(uint64_t);
 
    ctx->d_ctx_key1 += 40 * wsize_off;

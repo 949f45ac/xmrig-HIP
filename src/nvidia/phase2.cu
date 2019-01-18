@@ -49,7 +49,7 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 			EMIT_LOAD("%0, %2") MFLAGS " \n\t"						\
 			EMIT_LOAD("%1, %3") MFLAGS " \n\t"						\
 			: "=v"(dst0), "=v" (dst1)								\
-			: "r" (adr), "r"(adr+1) ); }
+			: "r" (adr), "r"(adr+1) : "memory"); }
 
 #define AL128(dst, adr) asm volatile(EMIT_WIDE_LOAD("%0, %1") MFLAGS : "=v"(dst) : "r"(adr) : "memory");
 
@@ -308,12 +308,11 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		#pragma unroll 2
 		for ( int x = 0; x < 2; ++x )
 		{
-			uint4 x32 = *reinterpret_cast<uint4*>(&x64);
-			// uint4 x32 = make_uint4(x64.x, x64.x >> 32, x64.y, x64.y >> 32);
+			uint4 x32 = make_uint4(x64.x, x64.x >> 32, x64.y, x64.y >> 32);
 			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
-			j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
+			j1 = SCRATCH_INDEX((c.x & 0x3FFFF0) >> 4);
 			uint64_t * adr = reinterpret_cast<uint64_t*>(long_state + j1);
 //			uint64_t ldst0, ldst1;
 			ulonglong2 ldst_f;
@@ -344,7 +343,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			ulonglong2 * adr2 = long_state + j0;
 
 #ifdef __HCC__
-			ASYNC_STORE(adr2, d_xored);
+			AS128(adr2, d_xored);
 #else
 			// This load is automatically vectorized by nvcc.
 			ldst_f.x = *adr;
@@ -371,10 +370,9 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			a_stor.x = a.x;
 
 			a.x ^= y2.x;
-			j0 = SCRATCH_INDEX((a.x & 0x3FFFF0 ) >> 4);
+			j0 = SCRATCH_INDEX((a.x & 0x3FFFF0) >> 4);
 
 			adr = reinterpret_cast<uint64_t*>(long_state + j0);
-
 
 			int64_t n_;
 			int32_t d_;
@@ -385,9 +383,6 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 				: "=v"(n_), "=v" (d_)
 				: "r" (adr), "r"(adr+1)
 				: "memory");
-#else
-			n_ = adr[0];
-			d_ = adr[1];
 #endif
 			PRIO(0)
 
@@ -396,21 +391,22 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			a_stor.y = a.y;
 
-			uint32_t *  a_stor32 = (uint32_t*) &a_stor;
 			if (0) {
+				uint32_t *  a_stor32 = (uint32_t*) &a_stor;
 				a_stor32[2] ^= tweak1_2[0];
 				a_stor32[3] ^= tweak1_2[1];
 			}
 
 #ifdef __HCC__
-			ASYNC_STORE(long_state+j1, a_stor);
+			AS128(long_state+j1, a_stor);
 #else
 			long_state[j1] = a_stor;
 #endif
 			same_adr = j0 == j1;
 
 #ifndef __HCC__
-			//ulonglong2 ldst = long_state[j0];
+			n_ = adr[0];
+			d_ = adr[1];
 #endif
 			a.y ^= y2.y;
 
@@ -423,31 +419,23 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			int64_t q = fast_div_heavy(n, d | 0x5);
 
-			// *((__global long*)(Scratchpad + (IDX((idx0) >> 4)))) = n ^ q;
-			// *reinterpret_cast<int64_t*>(long_state + j0) = n ^ q;
-			int j2 = SCRATCH_INDEX((((~d) ^ q) & 0x3FFFF0) >> 4);
+			uint64_t nnn = (~d) ^ q;
+			j0 = SCRATCH_INDEX((nnn & 0x3FFFF0) >> 4);
 
-			x64.y = long_state[j2].y;
-			// uint64_t ldst;
-
-			// ASYNC_LOAD(ldst, x64.y, long_state+j2);
+			x64.y = long_state[j0].y;
 
 			int64_t nxq = n^q;
 #ifdef __HCC__
-			asm ("flat_store_dwordx2 %0, %1"	MFLAGS
+			asm ("flat_store_dwordx2 %0, %1"	//MFLAGS
 				 :
-				 : "r" (long_state+j0), "v" (nxq) : "memory");
+				 : "r" (adr), "v" (nxq) : "memory");
 #else
-			long_state[j0].x = nxq;
+			*adr = nxq;
 #endif
 
-			x64.x = long_state[j2].x;
+			x64.x = long_state[j0].x;
 
-			// WAIT_FOR(ldst, 1);
-			// FENCE(x64.y);
-			// x64.x = j2 == j0 ? nxq : ldst;
-			// RETIRE(ldst);
-			j0 = j2;
+			PRIO(0);
 		}
 	}
 
