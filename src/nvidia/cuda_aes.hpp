@@ -291,6 +291,20 @@ __device__ __forceinline__ static uint4 cn_aes_single_round(const uint32_t * __r
 	return out;
 }
 
+__device__ __forceinline__ static uint4 cn_aes_round_bittube_lol(const uint32_t * __restrict__ sharedMemory, uint4 in, const uint4 key)
+{
+	uint4 out;
+	out.x = key.x ^ (t_fn0(in.x & 0xff) ^ t_fn1((in.y >> 8) & 0xff) ^ t_fn2((in.z >> 16) & 0xff) ^ t_fn3((in.w >> 24)));
+	in.x ^= out.x;
+	out.y = key.y ^ (t_fn0(in.y & 0xff) ^ t_fn1((in.z >> 8) & 0xff) ^ t_fn2((in.w >> 16) & 0xff) ^ t_fn3((in.x >> 24)));
+	in.y ^= out.y;
+	out.z = key.z ^ (t_fn0(in.z & 0xff) ^ t_fn1((in.w >> 8) & 0xff) ^ t_fn2((in.x >> 16) & 0xff) ^ t_fn3((in.y >> 24)));
+	in.z ^= out.z;
+	out.w = key.w ^ (t_fn0(in.w & 0xff) ^ t_fn1((in.x >> 8) & 0xff) ^ t_fn2((in.y >> 16) & 0xff) ^ t_fn3((in.z >> 24) ));
+	in.w ^= out.w;
+	return out;
+}
+
 __device__ __forceinline__ static void cn_aes_pseudo_round_mut(const uint32_t * __restrict__ sharedMemory, uint32_t * __restrict__ val, const uint32_t * __restrict__ expandedKey)
 {
 	uint32_t b1[4];

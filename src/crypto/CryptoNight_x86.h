@@ -488,10 +488,11 @@ inline void cryptonight_single_hash(const uint8_t *__restrict__ input, size_t si
         }
 
         const __m128i ax0 = _mm_set_epi64x(ah0, al0);
-        if (VARIANT == xmrig::VARIANT_TUBE) {
-            cx = aes_round_tweak_div(cx, ax0);
-        }
-        else if (SOFT_AES) {
+        // if (VARIANT == xmrig::VARIANT_TUBE) {
+        //     cx = aes_round_tweak_div(cx, ax0);
+        // }
+        // else
+		if (SOFT_AES) {
             cx = soft_aesenc((uint32_t*)&l0[idx0 & MASK], ax0);
         }
         else {  
