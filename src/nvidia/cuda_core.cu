@@ -368,25 +368,25 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
 
     if (algo == CRYPTONIGHT) {
         switch (variant) {
-        // case VARIANT_2:
-        //     cryptonight_core_cpu_hash<false, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_2:
+            cryptonight_core_cpu_hash<false, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
-        // case VARIANT_1:
-        //     cryptonight_core_cpu_hash<false, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_1:
+            cryptonight_core_cpu_hash<false, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
-        // case VARIANT_HALF:
-        //     cryptonight_core_cpu_hash<false, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_HALF:
+            cryptonight_core_cpu_hash<false, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
-        // case VARIANT_XTL:
-        //     cryptonight_core_cpu_hash<false, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_XTL:
+            cryptonight_core_cpu_hash<false, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
-        // case VARIANT_MSR:
-        //     cryptonight_core_cpu_hash<false, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_MSR:
+            cryptonight_core_cpu_hash<false, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
         default:
             printf("Only CN1, CN2, XTL, MSR supported for cn normal, but you requested: %d\n.", variant);
@@ -395,17 +395,17 @@ void cryptonight_gpu_hash_shifted(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Varian
     }
 	else if (algo == CRYPTONIGHT_HEAVY) {
 		switch (variant) {
-		// case VARIANT_0:
-        //     cryptonight_core_cpu_hash<true, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+		case VARIANT_0:
+            cryptonight_core_cpu_hash<true, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
         case VARIANT_TUBE:
             cryptonight_core_cpu_hash<true, VARIANT_TUBE, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
             break;
 
-        // case VARIANT_XHV:
-        //     cryptonight_core_cpu_hash<true, VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
-        //     break;
+        case VARIANT_XHV:
+            cryptonight_core_cpu_hash<true, VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+            break;
 
         default:
             printf("Only CN0, TUBE, XHV supported for cn/heavy, but you requested: %d\n.", variant);
