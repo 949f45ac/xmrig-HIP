@@ -401,6 +401,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			if (VARIANT == xmrig::VARIANT_TUBE) {
 				a_stor.y ^= tweak ^ a_stor.x;
+
 			}
 
 			if (VARIANT == xmrig::VARIANT_1) {

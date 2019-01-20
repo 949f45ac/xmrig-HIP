@@ -44,7 +44,6 @@
 
 #include "nvidia/cryptonight.h"
 
-
 bool Workers::m_active = false;
 bool Workers::m_enabled = true;
 Hashrate *Workers::m_hashrate = nullptr;

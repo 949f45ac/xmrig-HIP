@@ -74,7 +74,7 @@ int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx, xmrig::Algo algo);
 void cryptonight_extra_cpu_set_data(nvid_ctx* ctx, const void *data, uint32_t len);
 void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heavy);
 //void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t startNonce);
-void cryptonight_gpu_hash(nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
+void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
 void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy);
 }
 

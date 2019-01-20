@@ -34,87 +34,7 @@
 #include "workers/Handle.h"
 #include "workers/Workers.h"
 
-
-inline size_t get_timestamp_ms()
-{
-	using namespace std::chrono;
-	if(high_resolution_clock::is_steady)
-		return time_point_cast<milliseconds>(high_resolution_clock::now()).time_since_epoch().count();
-	else
-		return time_point_cast<milliseconds>(steady_clock::now()).time_since_epoch().count();
-}
-
-
-void updateTimings(InterleaveData * interleaveData, const uint64_t t)
-{
-    // averagingBias = 1.0 - only the last delta time is taken into account
-    // averagingBias = 0.5 - the last delta time has the same weight as all the previous ones combined
-    // averagingBias = 0.1 - the last delta time has 10% weight of all the previous ones combined
-    const double averagingBias = 1.0;
-
-    {
-		int64_t t2 = get_timestamp_ms();
-		std::lock_guard<std::mutex> g(interleaveData->mutex);
-		// 20000 mean that something went wrong an we reset the average
-		if(interleaveData->avgKernelRuntime == 0.0 || interleaveData->avgKernelRuntime > 20000.0)
-			interleaveData->avgKernelRuntime = (t2 - t);
-		else
-			interleaveData->avgKernelRuntime = interleaveData->avgKernelRuntime * (1.0 - averagingBias) + (t2 - t) * averagingBias;
-    }
-}
-
-uint64_t interleaveAdjustDelay(nvid_ctx* ctx, InterleaveData * interleaveData, double optimalTimeOffset)
-{
-	uint64_t t0 = get_timestamp_ms();
-
-	if(interleaveData->numThreadsOnGPU > 1 && interleaveData->adjustThreshold > 0.0)
-    {
-		t0 = get_timestamp_ms();
-		std::unique_lock<std::mutex> g(interleaveData->mutex);
-
-		int64_t delay = 0;
-        double dt = 0.0;
-
-		if(t0 > interleaveData->lastRunTimeStamp)
-			dt = static_cast<double>(t0 - interleaveData->lastRunTimeStamp);
-
-		const double avgRuntime = interleaveData->avgKernelRuntime;
-		// const double optimalTimeOffset = avgRuntime * interleaveData->adjustThreshold;
-
-		LOG_DEBUG("Measured %u|%u: %.1lf optimal / %.2lf actual",
-				 ctx->device_id,
-				 ctx->idWorkerOnDevice,
-				 optimalTimeOffset,
-				 dt
-			);
-
-		if((dt > 0) && (dt < optimalTimeOffset))
-		{
-            delay = static_cast<int64_t>((optimalTimeOffset  - dt));
-			delay += 20;
-		}
-		delay = std::max(int64_t(0), delay);
-
-		interleaveData->lastRunTimeStamp = t0 + delay;
-
-		g.unlock();
-		if(delay > 0)
-		{
-			// do not notify the user anymore if we reach a good delay
-			if(delay > 50)
-				LOG_INFO("HIP Interleave %u|%u: %u/%.2lf ms",
-					ctx->device_id,
-					ctx->idWorkerOnDevice,
-					static_cast<uint32_t>(delay),
-					avgRuntime
-				);
-
-			std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-		}
-    }
-
-    return t0;
-}
+#include "nvidia/cuda_device.hpp"
 
 CudaWorker::CudaWorker(Handle *handle) :
     m_id(handle->threadId()),
@@ -172,22 +92,13 @@ void CudaWorker::start()
 #endif
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(sleep_for/2));
-
-	if (interleave->numThreadsOnGPU > 1) {
+	
+	if (m_ctx.idWorkerOnDevice == 0) {
 		std::unique_lock<std::mutex> g(interleave->mutex);
-		interleave->lastRunTimeStamp = get_timestamp_ms();
+		hipEventCreateWithFlags(&interleave->progress, hipEventDisableTiming);
+		exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
 		g.unlock();
 	}
-
-	double optimal_offset = 0.8 * (m_ctx.device_blocks * m_ctx.device_threads) / interleave->numThreadsOnGPU;
-	// if (sleep_for > 0) {
-	// 	optimal_offset = 2 * sleep_for;
-	// } else {
-	// 	int wsize = m_ctx.device_blocks * m_ctx.device_threads;
-	// 	if (wsize < m_ctx.overall_wsize_on_card) {
-	// 		optimal_offset = (m_ctx.overall_wsize_on_card - wsize) / 3;
-	// 	}
-	// }
 
     while (Workers::sequence() > 0) {
         if (Workers::isPaused()) {
@@ -208,14 +119,36 @@ void CudaWorker::start()
 		LOG_DEBUG("Id %ld set data at %ld \n", m_id, timespecc.tv_nsec);
 #endif
         cryptonight_extra_cpu_set_data(&m_ctx, m_blob, m_job.size());
+		std::unique_lock<std::mutex> g = std::unique_lock<std::mutex>(interleave->mutex);
 
-		uint64_t t0 = get_timestamp_ms();
+		bool unlock = true;
         while (!Workers::isOutdated(m_sequence)) {
             uint32_t foundNonce[10];
             uint32_t foundCount;
 
             cryptonight_extra_cpu_prepare(&m_ctx, m_nonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);
-            cryptonight_gpu_hash(&m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
+            cryptonight_gpu_phase(1, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
+
+			hipEventRecord(interleave->progress, m_ctx.stream);
+			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
+			g.unlock();
+
+			cryptonight_gpu_phase(2, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
+
+            std::this_thread::yield();
+			hipEventSynchronize(interleave->progress);
+			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
+
+			if (Workers::isOutdated(m_sequence)) {
+				unlock = false;
+				break;
+			}
+			g = std::unique_lock<std::mutex>(interleave->mutex);
+
+			hipStreamWaitEvent(m_ctx.stream, interleave->progress, 0);
+			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
+
+			cryptonight_gpu_phase(3, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
             cryptonight_extra_cpu_final(&m_ctx, m_nonce, m_job.target(), &foundCount, foundNonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);
 
             for (size_t i = 0; i < foundCount; i++) {
@@ -227,12 +160,9 @@ void CudaWorker::start()
             m_nonce += m_ctx.device_blocks * m_ctx.device_threads;
 
             storeStats();
-
-			updateTimings(interleave, t0);
-            std::this_thread::yield();
-			t0 = interleaveAdjustDelay(&m_ctx, interleave, optimal_offset);
         }
 
+		if (unlock) g.unlock();
         consumeJob();
     }
 }
