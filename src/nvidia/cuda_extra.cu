@@ -595,7 +595,7 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	int t = ctx->device_threads * ctx->device_blocks;
 	int rest = t % d;
 	if (rest > 0) {
-		uint other_shift = d >> MIXED_SHIFT_DOWNDRAFT;
+		uint other_shift = d >> (MIXED_SHIFT_DOWNDRAFT + ((uint) algo == xmrig::CRYPTONIGHT_HEAVY));
 		if (shift == VEGA_SHIFT) {
 			if (rest % other_shift == 0) {
 #if DEBUG

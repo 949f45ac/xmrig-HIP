@@ -4,8 +4,9 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2016-2017 XMRig       <support@xmrig.com>
- *
+ * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2018      SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -26,11 +27,17 @@
 #include <uv.h>
 
 
+#ifndef XMRIG_NO_TLS
+#   include <openssl/ssl.h>
+#   include <openssl/err.h>
+#endif
+
+
 #include "Platform.h"
 
 
 char Platform::m_defaultConfigName[520] = { 0 };
-xmrig::c_str Platform::m_userAgent;
+xmrig::String Platform::m_userAgent;
 
 
 const char *Platform::defaultConfigName()
@@ -60,4 +67,24 @@ const char *Platform::defaultConfigName()
 
     *m_defaultConfigName = '\0';
     return nullptr;
+}
+
+
+void Platform::init(const char *userAgent)
+{
+#   ifndef XMRIG_NO_TLS
+    SSL_library_init();
+    SSL_load_error_strings();
+    ERR_load_BIO_strings();
+    ERR_load_crypto_strings();
+    SSL_load_error_strings();
+    OpenSSL_add_all_digests();
+#   endif
+
+    if (userAgent) {
+        m_userAgent = userAgent;
+    }
+    else {
+        m_userAgent = createUserAgent();
+    }
 }

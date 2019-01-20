@@ -161,7 +161,7 @@ __device__ __forceinline__ void memc_(void * __restrict__ dst, void * __restrict
 	const uint nshift_limit_t = (threads >> SEC_SHIFT) << SEC_SHIFT;	\
 	const uint nshift_limit_b = hipGridDim_x - ((threads - nshift_limit_t) << t_s) / hipBlockDim_x;	\
 	const bool over = MIXED_SHIFT && hipBlockIdx_x >= nshift_limit_b;	\
-	const uint concrete_shift = SEC_SHIFT - over * MIXED_SHIFT_DOWNDRAFT; \
+	const uint concrete_shift = SEC_SHIFT - over * (MIXED_SHIFT_DOWNDRAFT+((uint)HEAVY)); \
 	const uint sec_size0 = 1 << SEC_SHIFT;								\
 	const uint sec_size1 = 1 << concrete_shift;							\
 

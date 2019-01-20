@@ -33,7 +33,7 @@
 #include "common/Platform.h"
 #include "core/Config.h"
 #include "core/Controller.h"
-#include "Cpu.h"
+#include "common/cpu/Cpu.h"
 #include "net/Network.h"
 
 

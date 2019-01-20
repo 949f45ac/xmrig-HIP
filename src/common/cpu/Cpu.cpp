@@ -4,8 +4,8 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2016-2017 XMRig       <support@xmrig.com>
+ *
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,35 +21,37 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef XMRIG_TIMESTAMP_H
-#define XMRIG_TIMESTAMP_H
+
+#include <assert.h>
 
 
-#include <chrono>
+#include "common/cpu/BasicCpuInfo.h"
+#include "common/cpu/Cpu.h"
 
 
-namespace xmrig {
+static xmrig::ICpuInfo *cpuInfo = nullptr;
 
 
-static inline int64_t steadyTimestamp()
+xmrig::ICpuInfo *xmrig::Cpu::info()
 {
-    using namespace std::chrono;
-    if (high_resolution_clock::is_steady) {
-        return time_point_cast<milliseconds>(high_resolution_clock::now()).time_since_epoch().count();
-    }
+    assert(cpuInfo != nullptr);
 
-    return time_point_cast<milliseconds>(steady_clock::now()).time_since_epoch().count();
+    return cpuInfo;
 }
 
 
-static inline int64_t currentMSecsSinceEpoch()
+void xmrig::Cpu::init()
 {
-    using namespace std::chrono;
+    assert(cpuInfo == nullptr);
 
-    return time_point_cast<milliseconds>(high_resolution_clock::now()).time_since_epoch().count();
+    cpuInfo = new BasicCpuInfo();
 }
 
 
-} /* namespace xmrig */
+void xmrig::Cpu::release()
+{
+    assert(cpuInfo != nullptr);
 
-#endif /* XMRIG_TIMESTAMP_H */
+    delete cpuInfo;
+    cpuInfo = nullptr;
+}

@@ -312,6 +312,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 		for ( int x = 0; x < 2; ++x )
 		{
 			uint4 x32 = make_uint4(x64.x, x64.x >> 32, x64.y, x64.y >> 32);
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32 = ~x32; }
 			uint4 c = make_uint4(0, 0, 0, 0);
 
 			c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
@@ -323,8 +324,12 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			ASYNC_LOAD(ldst_f.x, ldst_f.y, adr);
 			PRIO(1);
 
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.x ^= c.x; }
+
 			c.y = (a.x >> 32) ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.y ^= c.y; }
 			c.z = ((uint32_t) a.y) ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
+			if (VARIANT == xmrig::VARIANT_TUBE) { x32.z ^= c.z; }
 			c.w = (a.y >> 32) ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
 
 			d[x] = *reinterpret_cast<ulonglong2*>(&c);
@@ -333,7 +338,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			d_xored.x ^= d[1].x;
 			d_xored.y ^= d[1].y;
 
-			if (VARIANT == xmrig::VARIANT_TUBE) {
+			if (VARIANT == xmrig::VARIANT_TUBE || VARIANT == xmrig::VARIANT_1) {
 				uint64_t fork_7 = d_xored.y;
 
 				uint8_t index = ((fork_7 >> 26) & 12) | ((fork_7 >> 23) & 2);
@@ -395,6 +400,10 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			a_stor.y = a.y;
 
 			if (VARIANT == xmrig::VARIANT_TUBE) {
+				a_stor.y ^= tweak ^ a_stor.x;
+			}
+
+			if (VARIANT == xmrig::VARIANT_1) {
 				a_stor.y ^= tweak;
 			}
 
@@ -473,7 +482,7 @@ v_xor(ulonglong2 a, ulonglong2 b)
 }
 
 
-template<bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 __launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
 {
@@ -492,11 +501,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	INIT_SHIFT(0);
 
-#define VARIANT (xmrig::VARIANT_2)
-
 	ulonglong2 * __restrict__ long_state = reinterpret_cast<ulonglong2*>(d_long_state_64) + BASE_OFF(thread, threads);
-
-#undef VARIANT
 
 	ulonglong2 * ctx_a = reinterpret_cast<ulonglong2*>(d_ctx_a + thread * (16/sizeof(uint32_t)));
 	uint32_t * ctx_b = d_ctx_b + thread * 12;
@@ -513,9 +518,11 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += division_result;
 	foo.x += sqrt_result;
 
+	const uint32_t end = ( ITER >> (VARIANT == xmrig::VARIANT_HALF ? 2 : 1) );
+
 	__syncthreads();
 	#pragma unroll 2
-	for ( int i = 0; i < ( ITER >> 1 ); ++i )
+	for ( int i = 0; i < end; ++i )
 	{
 		uint32_t j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
 		ulonglong2 chunk1, chunk2, chunk3;

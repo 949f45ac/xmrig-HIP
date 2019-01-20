@@ -4,8 +4,9 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2016-2017 XMRig       <support@xmrig.com>
- *
+ * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2018      SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,14 +22,14 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PLATFORM_H__
-#define __PLATFORM_H__
+#ifndef XMRIG_PLATFORM_H
+#define XMRIG_PLATFORM_H
 
 
 #include <stdint.h>
 
 
-#include "common/utils/c_str.h"
+#include "base/tools/String.h"
 
 
 class Platform
@@ -36,16 +37,20 @@ class Platform
 public:
     static bool setThreadAffinity(uint64_t cpu_id);
     static const char *defaultConfigName();
+    static uint32_t setTimerResolution(uint32_t resolution);
     static void init(const char *userAgent);
+    static void restoreTimerResolution();
     static void setProcessPriority(int priority);
     static void setThreadPriority(int priority);
 
     static inline const char *userAgent() { return m_userAgent.data(); }
 
 private:
+    static char *createUserAgent();
+
     static char m_defaultConfigName[520];
-    static xmrig::c_str m_userAgent;
+    static xmrig::String m_userAgent;
 };
 
 
-#endif /* __PLATFORM_H__ */
+#endif /* XMRIG_PLATFORM_H */
