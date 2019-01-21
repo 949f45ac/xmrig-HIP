@@ -104,6 +104,7 @@ void CudaWorker::start()
 
     while (Workers::sequence() > 0) {
         if (Workers::isPaused()) {
+			g.unlock();
             do {
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }
@@ -114,6 +115,7 @@ void CudaWorker::start()
             }
 
             consumeJob();
+			g = std::unique_lock<std::mutex>(interleave->mutex);
         }
 
 #if DEBUG
