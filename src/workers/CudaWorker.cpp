@@ -95,10 +95,12 @@ void CudaWorker::start()
 	
 	if (m_ctx.idWorkerOnDevice == 0) {
 		std::unique_lock<std::mutex> g(interleave->mutex);
-		hipEventCreateWithFlags(&interleave->progress, hipEventDisableTiming);
+		hipEventCreateWithFlags(&interleave->progress, hipEventDisableTiming | hipEventBlockingSync);
 		exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
 		g.unlock();
 	}
+
+	std::unique_lock<std::mutex> g = std::unique_lock<std::mutex>(interleave->mutex);
 
     while (Workers::sequence() > 0) {
         if (Workers::isPaused()) {
@@ -119,9 +121,7 @@ void CudaWorker::start()
 		LOG_DEBUG("Id %ld set data at %ld \n", m_id, timespecc.tv_nsec);
 #endif
         cryptonight_extra_cpu_set_data(&m_ctx, m_blob, m_job.size());
-		std::unique_lock<std::mutex> g = std::unique_lock<std::mutex>(interleave->mutex);
 
-		bool unlock = true;
         while (!Workers::isOutdated(m_sequence)) {
             uint32_t foundNonce[10];
             uint32_t foundCount;
@@ -135,14 +135,10 @@ void CudaWorker::start()
 
 			cryptonight_gpu_phase(2, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
 
-            std::this_thread::yield();
+			std::this_thread::yield();
 			hipEventSynchronize(interleave->progress);
 			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
 
-			if (Workers::isOutdated(m_sequence)) {
-				unlock = false;
-				break;
-			}
 			g = std::unique_lock<std::mutex>(interleave->mutex);
 
 			hipStreamWaitEvent(m_ctx.stream, interleave->progress, 0);
@@ -162,9 +158,13 @@ void CudaWorker::start()
             storeStats();
         }
 
-		if (unlock) g.unlock();
         consumeJob();
     }
+	g.unlock();
+
+	if (m_ctx.idWorkerOnDevice == 0) {
+		hipEventDestroy(interleave->progress);
+	}
 }
 
 
