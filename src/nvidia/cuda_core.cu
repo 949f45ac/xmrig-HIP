@@ -407,7 +407,14 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
 			exit(1);
         }
     }
-	else if (algo == CRYPTONIGHT_HEAVY) {
+}
+
+template<bool MIXED_SHIFT, int SEC_SHIFT>
+void cryptonight_gpu_phase_shifted_heavy(uint phase, nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce) {
+
+    using namespace xmrig;
+
+	if (algo == CRYPTONIGHT_HEAVY) {
 		switch (variant) {
 		case VARIANT_0:
             dophase<true, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
@@ -427,7 +434,7 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
         }
 	}
     else {
-		printf("Only CN1, XTL, MSR, XHV supported for now.");
+		printf("Heavy algo expected.");
 		exit(1);
 		return;
     }
@@ -435,12 +442,21 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
 
 extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce)
 {
+	const bool heavy = algo == xmrig::CRYPTONIGHT_HEAVY;
 #if COMPILE_FOR_VEGA
 	if (ctx->is_vega) {
 		if (ctx->mixed_shift) {
-			cryptonight_gpu_phase_shifted<true, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+			if (heavy) {
+				cryptonight_gpu_phase_shifted_heavy<true, VEGA_SHIFT-1>(phase, ctx, algo, variant, startNonce);
+			} else {
+				cryptonight_gpu_phase_shifted<true, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+			}
 		} else {
-			cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+			if (heavy) {
+				cryptonight_gpu_phase_shifted_heavy<false, VEGA_SHIFT-1>(phase, ctx, algo, variant, startNonce);
+			} else {
+				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+			}
 		}
 		return;
 	}
@@ -448,13 +464,21 @@ extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo alg
 
 #if !ONLY_VEGA
 	if (ctx->device_mpcount > 22) {
-		cryptonight_gpu_phase_shifted<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		if (heavy) {
+			cryptonight_gpu_phase_shifted_heavy<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		} else {
+			cryptonight_gpu_phase_shifted<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		}
 		return;
 	}
 
 	// else
 	{
-		cryptonight_gpu_phase_shifted<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		if (heavy) {
+			cryptonight_gpu_phase_shifted_heavy<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		} else {
+			cryptonight_gpu_phase_shifted<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+		}
 		return;
 	}
 #endif

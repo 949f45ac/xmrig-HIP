@@ -549,6 +549,9 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 		shift = VEGA_SHIFT;
 		ctx->is_vega = 1;
 	}
+	if (algo == xmrig::CRYPTONIGHT_HEAVY && ctx->is_vega) {
+		shift--;
+	}
 
 	if(ctx->device_threads == -1)
 	{
@@ -595,8 +598,8 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	int t = ctx->device_threads * ctx->device_blocks;
 	int rest = t % d;
 	if (rest > 0) {
-		uint other_shift = d >> (MIXED_SHIFT_DOWNDRAFT + ((uint) algo == xmrig::CRYPTONIGHT_HEAVY));
-		if (shift == VEGA_SHIFT) {
+		uint other_shift = d >> MIXED_SHIFT_DOWNDRAFT;
+		if (ctx->is_vega) {
 			if (rest % other_shift == 0) {
 #if DEBUG
 				printf("INFO: Total number of threads %d (threads*blocks) is not divisible by %d. Will divide the remainder by %d.\n",
