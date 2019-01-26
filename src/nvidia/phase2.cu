@@ -430,7 +430,11 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 			int64_t q = fast_div_heavy(n, d | 0x5);
 
-			uint64_t nnn = (VARIANT == xmrig::VARIANT_XHV ? (~d) : d) ^ q;
+			if (VARIANT == xmrig::VARIANT_XHV) {
+				asm ("V_NOT_B32 %0, %1" : "=v"(d) : "v"(d));
+			}
+
+			uint64_t nnn = d ^ q;
 			j0 = SCRATCH_INDEX((nnn & 0x3FFFF0) >> 4);
 
 			x64.y = long_state[j0].y;
