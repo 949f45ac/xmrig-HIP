@@ -305,7 +305,7 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 	ulonglong2 x64 = long_state[j0];
 
 	__syncthreads();
-	#pragma unroll 2
+	#pragma unroll 4
 	for ( i = start; i < end; ++i )
 	{
 		#pragma unroll 2
