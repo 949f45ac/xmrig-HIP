@@ -170,7 +170,7 @@ void xmrig::CommonConfig::printVersions()
 #   endif
     int length = snprintf(buf, sizeof buf, "OpenCL/%s ", ocl);
 #   elif defined(XMRIG_NVIDIA_PROJECT)
-    const int cudaVersion = 9000; // cuda_get_runtime_version();
+    const int cudaVersion = 8000; // cuda_get_runtime_version();
     int length = snprintf(buf, sizeof buf, "CUDA/%d.%d ", cudaVersion / 1000, cudaVersion % 100);
 #   else
     memset(buf, 0, 16);

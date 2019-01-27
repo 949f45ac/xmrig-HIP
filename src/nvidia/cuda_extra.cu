@@ -133,7 +133,7 @@ __global__ void cryptonight_extra_gpu_prepare( int threads, uint32_t * __restric
 	uint32_t ctx_b[4];
 	uint32_t ctx_key1[40];
 	uint32_t ctx_key2[40];
-	uint32_t input[21];
+	uint32_t input[32];
 
 	memcpy( input, d_input, len );
 	//*((uint32_t *)(((char *)input) + 39)) = startNonce + thread;
@@ -290,7 +290,7 @@ extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx, xmrig::Algo algo)
    printf("Set GPU at %ld \n", timespecc.tv_nsec);
 #endif
 
-   hipMalloc(&ctx->d_input, 21 * sizeof (uint32_t ) );
+   hipMalloc(&ctx->d_input, 32 * sizeof (uint32_t ) );
    exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
    hipMalloc(&ctx->d_result_count, sizeof (uint32_t ) );
    exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );

@@ -213,9 +213,9 @@ const char *Client::tlsVersion() const
 int64_t Client::submit(const JobResult &result)
 {
 #   ifndef XMRIG_PROXY_PROJECT
-    // if (result.clientId != m_rpcId) {
-    //     return -1;
-    // }
+    if (result.clientId != m_rpcId) {
+        return -1;
+    }
 #   endif
 
     using namespace rapidjson;
@@ -342,7 +342,8 @@ bool Client::parseJob(const rapidjson::Value &params, int *code)
     if (params.HasMember("algo")) {
         job.setAlgorithm(params["algo"].GetString());
     }
-    else if (params.HasMember("variant")) {
+
+    if (params.HasMember("variant")) {
         const rapidjson::Value &variant = params["variant"];
 
         if (variant.IsInt()) {

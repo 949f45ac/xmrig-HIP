@@ -21,8 +21,8 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __DONATESTRATEGY_H__
-#define __DONATESTRATEGY_H__
+#ifndef XMRIG_DONATESTRATEGY_H
+#define XMRIG_DONATESTRATEGY_H
 
 
 #include <uv.h>
@@ -43,8 +43,8 @@ class Url;
 class DonateStrategy : public IStrategy, public IStrategyListener
 {
 public:
-    DonateStrategy(int level, const char *user, const xmrig::Algorithm &algorithm, IStrategyListener *listener);
-    ~DonateStrategy();
+    DonateStrategy(int level, const char *user, xmrig::Algo algo, IStrategyListener *listener);
+    ~DonateStrategy() override;
 
 public:
     inline bool isActive() const override  { return m_active; }
@@ -68,12 +68,14 @@ private:
     static void onTimer(uv_timer_t *handle);
 
     bool m_active;
-    const int m_donateTime;
-    const int m_idleTime;
+    const uint64_t m_donateTime;
+    const uint64_t m_idleTime;
     IStrategy *m_strategy;
     IStrategyListener *m_listener;
     std::vector<Pool> m_pools;
+    uint64_t m_now;
+    uint64_t m_stop;
     uv_timer_t m_timer;
 };
 
-#endif /* __DONATESTRATEGY_H__ */
+#endif /* XMRIG_DONATESTRATEGY_H */
