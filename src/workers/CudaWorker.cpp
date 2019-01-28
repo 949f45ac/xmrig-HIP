@@ -163,10 +163,6 @@ void CudaWorker::start()
         consumeJob();
     }
 	g.unlock();
-
-	if (m_ctx.idWorkerOnDevice == 0) {
-		hipEventDestroy(interleave->progress);
-	}
 }
 
 
