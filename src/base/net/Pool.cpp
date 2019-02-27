@@ -489,6 +489,7 @@ void xmrig::Pool::rebuild()
     addVariant(VARIANT_TUBE);
     addVariant(VARIANT_MSR);
     addVariant(VARIANT_XHV);
+    addVariant(VARIANT_TRTL);
     // addVariant(VARIANT_XAO);
     // addVariant(VARIANT_RTO);
     // addVariant(VARIANT_GPU);

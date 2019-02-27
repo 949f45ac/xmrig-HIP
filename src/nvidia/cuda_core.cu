@@ -421,7 +421,7 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
             break;
 
         default:
-            printf("Only CN0, TUBE, XHV supported for cn/heavy, but you requested: %d\n.", variant);
+            printf("Only CN0, TUBE, XHV supported for cn-heavy, but you requested: %d\n.", variant);
 			exit(1);
         }
 	} else if (algo == CRYPTONIGHT_PICO) {
@@ -431,7 +431,7 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
             break;
 
         default:
-            printf("Only CN0, TUBE, XHV supported for cn/heavy, but you requested: %d\n.", variant);
+            printf("Only TRTL supported for cn-pico, but you requested: %d\n.", variant);
 			exit(1);
         }
 	}

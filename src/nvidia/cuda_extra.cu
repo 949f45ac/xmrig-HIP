@@ -550,6 +550,9 @@ extern "C" int cuda_get_deviceinfo(nvid_ctx* ctx, xmrig::Algo algo)
 	if (algo == xmrig::CRYPTONIGHT_HEAVY && ctx->is_vega) {
 		shift--;
 	}
+	// if (algo == xmrig::CRYPTONIGHT_PICO) {
+	// 	shift = 2;
+	// }
 
 	if(ctx->device_threads == -1)
 	{

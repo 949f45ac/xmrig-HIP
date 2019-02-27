@@ -508,6 +508,8 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	uint64_t division_result = reinterpret_cast<uint64_t*>(ctx_b)[4];
 	uint32_t sqrt_result = ctx_b[10];
 
+	const uint32_t mask = xmrig::cn_select_mask<ALGO>();
+
 	ulonglong2 foo = make_ulonglong2(55, 77);
 	foo -= d;
 	foo -= d_old;
@@ -520,7 +522,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	#pragma unroll 2
 	for ( int i = 0; i < end; ++i )
 	{
-		uint32_t j0 = SCRATCH_INDEX(( a.x & 0x1FFFF0 ) >> 4);
+		uint32_t j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
 		ulonglong2 chunk1, chunk2, chunk3;
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
 		LOAD_CHUNK(chunk1, j0, 1);
@@ -532,7 +534,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 		uint4 c = cn_aes_single_round(sharedMemory, x32, a4);
 
-		uint32_t j1 = SCRATCH_INDEX((c.x & 0x1FFFF0 ) >> 4);
+		uint32_t j1 = SCRATCH_INDEX((c.x & mask ) >> 4);
 
 		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
 		STORE_CHUNK(j0, v_add(chunk1, d), 2);
