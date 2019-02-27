@@ -105,7 +105,7 @@ __launch_bounds__( P13T )
 #endif
 
 
-template<bool HEAVY, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict__ long_state_64, uint32_t * __restrict__ ctx_state, uint32_t * __restrict__ ctx_key1 )
 {
 	__shared__ uint32_t sharedMemory[1024];
@@ -121,7 +121,7 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 
 	uint4 * const long_state = reinterpret_cast<uint4*>(long_state_64) + BASE_OFF(thread, threads);
 
-	const int end = (0x80000 >> (2 + CHU_SHIFT - HEAVY));
+	const int end = (xmrig::cn_select_memory<ALGO>() >> (4 + CHU_SHIFT));
 
 	if ( thread >= threads )
 		return;
@@ -160,7 +160,7 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 																		\
 	text = v_cn_aes_pseudo_round_mut( sharedMemory, text, key );		\
 																		\
-	if (HEAVY) {														\
+	if (ALGO == xmrig::CRYPTONIGHT_HEAVY) {								\
 		text.x ^= __shfl( text.x, (subRaw+1)&7, 8 );					\
 		text.y ^= __shfl( text.y, (subRaw+1)&7, 8 );					\
 		text.z ^= __shfl( text.z, (subRaw+1)&7, 8 );					\
@@ -171,7 +171,7 @@ __global__ void cryptonight_core_gpu_phase1( int threads, uint64_t * __restrict_
 #if ENABLE_LAUNCH_BOUNDS
 __launch_bounds__( P13T )
 #endif
-template<bool HEAVY, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __restrict__ long_state_64, uint32_t * __restrict__ d_ctx_state, uint32_t * __restrict__ d_ctx_key2 )
 {
 	__shared__ uint32_t sharedMemory[1024];
@@ -199,7 +199,7 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	__syncthreads( );
 
 	const int jump = (1 << (concrete_shift+CHU_SHIFT));
-	const int end = (0x80000 >> (2 - HEAVY)) << concrete_shift;
+	const int end = (xmrig::cn_select_memory<ALGO>() >> 4) << concrete_shift;
 
 	#pragma unroll 4
 	for ( int i = subRaw; i < end; i += jump )
@@ -216,7 +216,7 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	__syncthreads( );
 }
 
-template<bool HEAVY, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_schedule_phase2(nvid_ctx* ctx, uint32_t nonce) {
 	dim3 grid, block;
 	const bool lowered = false; // VARIANT != xmrig::VARIANT_2 && !HEAVY && !ctx->is_vega && ctx->device_mpcount > 20 && ctx->device_threads > 4;
@@ -238,21 +238,21 @@ void cryptonight_schedule_phase2(nvid_ctx* ctx, uint32_t nonce) {
 		block = dim3( ctx->device_threads );
 	}
 
-	if (VARIANT == xmrig::VARIANT_2 || VARIANT == xmrig::VARIANT_HALF) {
+	if (xmrig::cn_base_variant<VARIANT>() == xmrig::VARIANT_2) {
 #ifdef __HIP_PLATFORM_NVCC__
-		cryptonight_core_gpu_phase2_monero_v8<VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
+		cryptonight_core_gpu_phase2_monero_v8<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
 			ctx->d_long_state,
 			ctx->d_ctx_a,
 			ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 #else
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase2_monero_v8<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase2_monero_v8<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>,
 						   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 						   ctx->d_long_state,
 						   ctx->d_ctx_a,
 						   ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 #endif
-	} else if (HEAVY) {
+	} else if (ALGO == xmrig::CRYPTONIGHT_HEAVY) {
 #ifdef __HIP_PLATFORM_NVCC__
 		cryptonight_core_gpu_phase2_heavy<VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
@@ -268,13 +268,13 @@ void cryptonight_schedule_phase2(nvid_ctx* ctx, uint32_t nonce) {
 #endif
 	} else if (lowered) {
 #ifdef __HIP_PLATFORM_NVCC__
-		cryptonight_core_gpu_phase2<VARIANT, false, SEC_SHIFT-1><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
+		cryptonight_core_gpu_phase2<ALGO, VARIANT, false, SEC_SHIFT-1><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
 			ctx->d_long_state,
 			ctx->d_ctx_a,
 			ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 #else
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT, false, SEC_SHIFT-1>,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase2<ALGO, VARIANT, false, SEC_SHIFT-1>,
 						   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 						   ctx->d_long_state,
 						   ctx->d_ctx_a,
@@ -282,13 +282,13 @@ void cryptonight_schedule_phase2(nvid_ctx* ctx, uint32_t nonce) {
 #endif
 	} else {
 #ifdef __HIP_PLATFORM_NVCC__
-		cryptonight_core_gpu_phase2<VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
+		cryptonight_core_gpu_phase2<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(grid), dim3(block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
 			ctx->d_long_state,
 			ctx->d_ctx_a,
 			ctx->d_ctx_b, ctx->d_ctx_state, nonce, ctx->d_input);
 #else
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase2<VARIANT, MIXED_SHIFT, SEC_SHIFT>,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase2<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>,
 						   dim3(grid), dim3(block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads,
 						   ctx->d_long_state,
 						   ctx->d_ctx_a,
@@ -299,7 +299,7 @@ void cryptonight_schedule_phase2(nvid_ctx* ctx, uint32_t nonce) {
 	exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 }
 
-template<bool HEAVY, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_schedule_phase1(nvid_ctx* ctx, uint32_t nonce)
 {
 	int p13t = ctx->device_bsleep > 0 ? ctx->device_bsleep : P13T;
@@ -308,14 +308,14 @@ void cryptonight_core_schedule_phase1(nvid_ctx* ctx, uint32_t nonce)
 	dim3 p1_3_block( p13t );
 
 #ifdef __HIP_PLATFORM_NVCC__
-	cryptonight_core_gpu_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT><<<dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream>>>(ctx->device_blocks*ctx->device_threads, ctx->d_long_state, ctx->d_ctx_state_p1, ctx->d_ctx_key1);
+	cryptonight_core_gpu_phase1<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream>>>(ctx->device_blocks*ctx->device_threads, ctx->d_long_state, ctx->d_ctx_state_p1, ctx->d_ctx_key1);
 #else
-	hipLaunchKernelGGL(cryptonight_core_gpu_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads, ctx->d_long_state, ctx->d_ctx_state_p1, ctx->d_ctx_key1);
+	hipLaunchKernelGGL(cryptonight_core_gpu_phase1<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream, ctx->device_blocks*ctx->device_threads, ctx->d_long_state, ctx->d_ctx_state_p1, ctx->d_ctx_key1);
 #endif
 	exit_if_cudaerror( ctx->device_id, __FILE__, __LINE__ );
 }
 
-template<bool HEAVY, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_schedule_phase3(nvid_ctx* ctx, uint32_t nonce)
 {
 	int p13t = ctx->device_bsleep > 0 ? ctx->device_bsleep : P13T;
@@ -323,16 +323,16 @@ void cryptonight_core_schedule_phase3(nvid_ctx* ctx, uint32_t nonce)
 	dim3 p1_3_grid((ctx->device_blocks * ctx->device_threads * 8) / p13t);
 	dim3 p1_3_block( p13t );
 
-	for ( int i = 0; i < (HEAVY + 1); i++ )
+	for ( int i = 0; i < (1 + (ALGO == xmrig::CRYPTONIGHT_HEAVY)); i++ )
 	{
 #ifdef __HIP_PLATFORM_NVCC__
-		cryptonight_core_gpu_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT><<<dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream>>>(
+		cryptonight_core_gpu_phase3<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT><<<dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream>>>(
 			ctx->device_blocks*ctx->device_threads,
 			ctx->d_long_state,
 			ctx->d_ctx_state,
 			ctx->d_ctx_key2);
 #else
-		hipLaunchKernelGGL(cryptonight_core_gpu_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream,
+		hipLaunchKernelGGL(cryptonight_core_gpu_phase3<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>, dim3(p1_3_grid), dim3(p1_3_block), 0, ctx->stream,
 						   ctx->device_blocks*ctx->device_threads,
 						   ctx->d_long_state,
 						   ctx->d_ctx_state,
@@ -342,31 +342,31 @@ void cryptonight_core_schedule_phase3(nvid_ctx* ctx, uint32_t nonce)
 	}
 }
 
-template<bool HEAVY, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t nonce)
 {
-	cryptonight_core_schedule_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
+	cryptonight_core_schedule_phase1<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
 
 #if DEBUG
 	printf("Starting run for nonce %d\n", nonce);
 #endif
-	cryptonight_schedule_phase2<HEAVY, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
-	cryptonight_core_schedule_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
+	cryptonight_schedule_phase2<ALGO, VARIANT, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
+	cryptonight_core_schedule_phase3<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, nonce);
 }
 
-template<bool HEAVY, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 void dophase(uint phase, nvid_ctx *ctx, uint32_t startNonce) {
 	switch (phase) {
 	case 1:
-		cryptonight_core_schedule_phase1<HEAVY, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+		cryptonight_core_schedule_phase1<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
 		break;
 
 	case 2:
-		cryptonight_schedule_phase2<HEAVY, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+		cryptonight_schedule_phase2<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
 		break;
 
 	case 3:
-		cryptonight_core_schedule_phase3<HEAVY, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
+		cryptonight_core_schedule_phase3<ALGO, VARIANT, MIXED_SHIFT, SEC_SHIFT>(ctx, startNonce);
 		break;
 
 	default:
@@ -383,49 +383,51 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
     if (algo == CRYPTONIGHT) {
         switch (variant) {
         case VARIANT_2:
-            dophase<false, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_1:
-            dophase<false, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_HALF:
-            dophase<false, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_XTL:
-            dophase<false, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_MSR:
-            dophase<false, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         default:
             printf("Only CN1, CN2, XTL, MSR supported for cn normal, but you requested: %d\n.", variant);
 			exit(1);
         }
-    }
-}
-
-template<bool MIXED_SHIFT, int SEC_SHIFT>
-void cryptonight_gpu_phase_shifted_heavy(uint phase, nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce) {
-
-    using namespace xmrig;
-
-	if (algo == CRYPTONIGHT_HEAVY) {
+    } else if (algo == CRYPTONIGHT_HEAVY) {
 		switch (variant) {
 		case VARIANT_0:
-            dophase<true, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT_HEAVY, VARIANT_0, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_TUBE:
-            dophase<true, VARIANT_TUBE, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT_HEAVY, VARIANT_TUBE, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         case VARIANT_XHV:
-            dophase<true, VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            dophase<CRYPTONIGHT_HEAVY, VARIANT_XHV, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+            break;
+
+        default:
+            printf("Only CN0, TUBE, XHV supported for cn/heavy, but you requested: %d\n.", variant);
+			exit(1);
+        }
+	} else if (algo == CRYPTONIGHT_PICO) {
+		switch (variant) {
+		case VARIANT_TRTL:
+            dophase<CRYPTONIGHT_PICO, VARIANT_TRTL, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
         default:
@@ -434,7 +436,7 @@ void cryptonight_gpu_phase_shifted_heavy(uint phase, nvid_ctx *ctx, xmrig::Algo 
         }
 	}
     else {
-		printf("Heavy algo expected.");
+		printf("Unexpected algo.");
 		exit(1);
 		return;
     }
@@ -447,13 +449,13 @@ extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo alg
 	if (ctx->is_vega) {
 		if (ctx->mixed_shift) {
 			if (heavy) {
-				cryptonight_gpu_phase_shifted_heavy<true, VEGA_SHIFT-1>(phase, ctx, algo, variant, startNonce);
+				cryptonight_gpu_phase_shifted<true, VEGA_SHIFT-1>(phase, ctx, algo, variant, startNonce);
 			} else {
 				cryptonight_gpu_phase_shifted<true, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
 			}
 		} else {
 			if (heavy) {
-				cryptonight_gpu_phase_shifted_heavy<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
 			} else {
 				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
 			}
@@ -465,7 +467,7 @@ extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo alg
 #if !ONLY_VEGA
 	if (ctx->device_mpcount > 22) {
 		if (heavy) {
-			cryptonight_gpu_phase_shifted_heavy<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+			cryptonight_gpu_phase_shifted<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
 		} else {
 			cryptonight_gpu_phase_shifted<false, LARGE_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
 		}
@@ -475,7 +477,7 @@ extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo alg
 	// else
 	{
 		if (heavy) {
-			cryptonight_gpu_phase_shifted_heavy<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
+			cryptonight_gpu_phase_shifted<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
 		} else {
 			cryptonight_gpu_phase_shifted<false, SMALL_POLARIS_SHIFT>(phase, ctx, algo, variant, startNonce);
 		}

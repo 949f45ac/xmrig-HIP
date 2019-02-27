@@ -176,6 +176,6 @@ __device__ __forceinline__ uint32_t scratch_index(uint64_t offset, int shift) {
 
 #define SCRATCH_INDEX(offset) scratch_index(offset, concrete_shift)
 
-#define ALGOMEM (HEAVY ? (MEMORY/8) : (MEMORY/16))
+#define ALGOMEM (xmrig::cn_select_memory<ALGO>() >> 4)
 
 #define BASE_OFF(thread, threads) (thread / sec_size0) * sec_size0 * ALGOMEM + over * ((thread-nshift_limit_t) / sec_size1) * sec_size1 * ALGOMEM + (thread % sec_size1) * CHU;

@@ -14,6 +14,7 @@
 #include "cuda_aes.hpp"
 #include "fast_int_math_v2.hpp"
 
+#include "crypto/CryptoNight_constants.h"
 
 #ifdef __HCC__
 // HIP builtin is broken so we need to resort to manual impl.
@@ -86,9 +87,7 @@ _gpu_mul_hi_u64(ulong x, ulong y)
 #define LOAD_CHUNK(dst, offset, n) dst = long_state[offset^n];
 #define STORE_CHUNK(offset, src, n) long_state[offset^n] = src;
 
-#define HEAVY 0
-
-template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 #ifdef __HCC__
 __launch_bounds__( 16 )
 #else
@@ -249,9 +248,7 @@ __global__ void cryptonight_core_gpu_phase2( int threads, uint64_t * __restrict_
 	}
 }
 
-#undef HEAVY
-#define HEAVY 1
-
+#define ALGO (xmrig::CRYPTONIGHT_HEAVY)
 template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 #ifdef __HCC__
 __launch_bounds__( 32 )
@@ -453,11 +450,8 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			PRIO(0);
 		}
 	}
-
 }
-
-#undef HEAVY
-#define HEAVY 0
+#undef ALGO
 
 __device__ __forceinline__ ulonglong2
 v_add(ulonglong2 a, ulonglong2 b)
@@ -484,7 +478,7 @@ v_xor(ulonglong2 a, ulonglong2 b)
 }
 
 
-template<xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
+template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 __launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
 {
@@ -520,7 +514,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += division_result;
 	foo.x += sqrt_result;
 
-	const uint32_t end = ( ITER >> (VARIANT == xmrig::VARIANT_HALF ? 2 : 1) );
+	const uint32_t end = ( xmrig::cn_select_iter<ALGO, VARIANT>() );
 
 	__syncthreads();
 	#pragma unroll 2
@@ -609,5 +603,3 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo -=  d_old;
 	*ctx_a = foo;
 }
-
-#undef HEAVY

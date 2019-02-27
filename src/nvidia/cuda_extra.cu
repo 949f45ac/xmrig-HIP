@@ -40,6 +40,7 @@ typedef unsigned long long DataLength;
 #include "cuda_skein.hpp"
 #include "cuda_device.hpp"
 #include "common/xmrig.h"
+#include "crypto/CryptoNight_constants.h"
 
 __constant__ uint8_t d_sub_byte[16][16] ={
 	{0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76 },
@@ -304,8 +305,8 @@ extern "C" int cryptonight_extra_cpu_set_gpu(nvid_ctx* ctx, xmrig::Algo algo)
    ctx->d_ctx_state += 50 * wsize_off;
    ctx->d_ctx_state_p1 += 50 * wsize_off;
 
-   uint f = algo == xmrig::CRYPTONIGHT_HEAVY ? 2 : 1;
-   ctx->d_long_state += ((size_t)MEMORY * wsize_off * f) / sizeof(uint64_t);
+   // uint f = algo == xmrig::CRYPTONIGHT_HEAVY ? 2 : 1;
+   ctx->d_long_state += ((size_t)xmrig::cn_select_memory(algo) * wsize_off) / sizeof(uint64_t);
 
    ctx->d_ctx_key1 += 40 * wsize_off;
    ctx->d_ctx_key2 += 40 * wsize_off;
@@ -342,16 +343,13 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx, xmrig::Algo algo)
 	hipMalloc(&ctx->d_ctx_state, 50 * sizeof(uint32_t) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 
-	uint f;
 	if (algo == xmrig::CRYPTONIGHT_HEAVY) {
 		hipMalloc(&ctx->d_ctx_state_p1, 50 * sizeof(uint32_t) * wsize);
 		exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
-		f = 2;
 	} else {
 		ctx->d_ctx_state_p1 = ctx->d_ctx_state;
-		f = 1;
 	}
-	hipMalloc(&ctx->d_long_state, (size_t)MEMORY * wsize * f);
+	hipMalloc(&ctx->d_long_state, (size_t)xmrig::cn_select_memory(algo) * wsize);
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__);
 
 	hipMalloc(&ctx->d_ctx_key1, 40 * sizeof(uint32_t) * wsize);
