@@ -6,7 +6,8 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2018      Lee Clagett <https://github.com/vtnerd>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -53,17 +54,17 @@ protected:
     void start() override;
 
 private:
-    bool resume(const Job &job);
+    bool resume(const xmrig::Job &job);
     void consumeJob();
-    void save(const Job &job);
+    void save(const xmrig::Job &job);
     void setJob();
     void storeStats();
 
     const size_t m_id;
     const size_t m_threads;
     const xmrig::Algo m_algorithm;
-    Job m_job;
-    Job m_pausedJob;
+    xmrig::Job m_job;
+    xmrig::Job m_pausedJob;
     nvid_ctx m_ctx;
 	InterleaveData * interleave;
     std::atomic<uint64_t> m_hashCount;
@@ -72,7 +73,7 @@ private:
     uint32_t m_pausedNonce;
     uint64_t m_count;
     uint64_t m_sequence;
-    uint8_t m_blob[Job::kMaxBlobSize]; // Max blob size is 84 (75 fixed + 9 variable), aligned to 96. https://github.com/xmrig/xmrig/issues/1 Thanks fireice-uk
+    uint8_t m_blob[xmrig::Job::kMaxBlobSize];
 };
 
 

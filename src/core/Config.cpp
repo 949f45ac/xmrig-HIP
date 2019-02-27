@@ -30,7 +30,6 @@
 #include "common/log/Log.h"
 #include "core/Config.h"
 #include "core/ConfigCreator.h"
-#include "Cpu.h"
 #include "crypto/CryptoNight_constants.h"
 #include "nvidia/NvmlApi.h"
 #include "rapidjson/document.h"
@@ -45,6 +44,28 @@ xmrig::Config::Config() : xmrig::CommonConfig(),
     m_maxGpuThreads(64),
     m_maxGpuUsage(100)
 {
+}
+
+
+bool xmrig::Config::isCNv2() const
+{
+    if (algorithm().algo() == CRYPTONIGHT_PICO) {
+        return true;
+    }
+
+    if (algorithm().algo() != CRYPTONIGHT) {
+        return false;
+    }
+
+    for (const Pool &pool : m_pools.data()) {
+        const Variant variant = pool.algorithm().variant();
+
+        if (variant == VARIANT_2 || variant == VARIANT_AUTO || variant == VARIANT_HALF || variant == VARIANT_WOW) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 
@@ -67,6 +88,7 @@ void xmrig::Config::getJSON(rapidjson::Document &doc) const
     Value api(kObjectType);
     api.AddMember("port",             apiPort(), allocator);
     api.AddMember("access-token",     apiToken() ? Value(StringRef(apiToken())).Move() : Value(kNullType).Move(), allocator);
+    api.AddMember("id",               apiId() ? Value(StringRef(apiId())).Move() : Value(kNullType).Move(), allocator);
     api.AddMember("worker-id",        apiWorkerId() ? Value(StringRef(apiWorkerId())).Move() : Value(kNullType).Move(), allocator);
     api.AddMember("ipv6",             isApiIPv6(), allocator);
     api.AddMember("restricted",       isApiRestricted(), allocator);
@@ -79,17 +101,10 @@ void xmrig::Config::getJSON(rapidjson::Document &doc) const
     doc.AddMember("cuda-max-threads", m_maxGpuThreads, allocator);
     doc.AddMember("donate-level",     donateLevel(), allocator);
     doc.AddMember("log-file",         logFile() ? Value(StringRef(logFile())).Move() : Value(kNullType).Move(), allocator);
-
-    Value pools(kArrayType);
-
-    for (const Pool &pool : m_activePools) {
-        pools.PushBack(pool.toJSON(doc), allocator);
-    }
-
-    doc.AddMember("pools",         pools, allocator);
-    doc.AddMember("print-time",    printTime(), allocator);
-    doc.AddMember("retries",       retries(), allocator);
-    doc.AddMember("retry-pause",   retryPause(), allocator);
+    doc.AddMember("pools",            m_pools.toJSON(doc), allocator);
+    doc.AddMember("print-time",       printTime(), allocator);
+    doc.AddMember("retries",          m_pools.retries(), allocator);
+    doc.AddMember("retry-pause",      m_pools.retryPause(), allocator);
 
     Value threads(kArrayType);
     for (const IThread *thread : m_threads) {
@@ -103,9 +118,9 @@ void xmrig::Config::getJSON(rapidjson::Document &doc) const
 }
 
 
-xmrig::Config *xmrig::Config::load(int argc, char **argv, IWatcherListener *listener)
+xmrig::Config *xmrig::Config::load(Process *process, IConfigListener *listener)
 {
-    return static_cast<Config*>(ConfigLoader::load(argc, argv, new ConfigCreator(), listener));
+    return static_cast<Config*>(ConfigLoader::load(process, new ConfigCreator(), listener));
 }
 
 
@@ -119,10 +134,10 @@ bool xmrig::Config::finalize()
         return false;
     }
 
-    if (m_threads.empty() && !m_cudaCLI.setup(m_threads, algorithm().algo())) {
+    if (m_threads.empty() && !m_cudaCLI.setup(m_threads, algorithm().algo(), isCNv2())) {
         m_autoConf   = true;
         m_shouldSave = true;
-        m_cudaCLI.autoConf(m_threads, algorithm().algo());
+        m_cudaCLI.autoConf(m_threads, algorithm().algo(), isCNv2());
 
         for (IThread *thread : m_threads) {
             static_cast<CudaThread *>(thread)->limit(m_maxGpuUsage, m_maxGpuThreads);
@@ -207,6 +222,8 @@ bool xmrig::Config::parseUint64(int key, uint64_t arg)
 
 void xmrig::Config::parseJSON(const rapidjson::Document &doc)
 {
+    CommonConfig::parseJSON(doc);
+
     const rapidjson::Value &threads = doc["threads"];
 
     if (threads.IsArray()) {

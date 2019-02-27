@@ -5,7 +5,8 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2016-2018 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -29,21 +30,23 @@
 #include <vector>
 
 
-#include "common/net/Pool.h"
+#include "base/net/Pool.h"
 #include "common/interfaces/IClientListener.h"
 #include "common/interfaces/IStrategy.h"
 #include "common/interfaces/IStrategyListener.h"
 
 
+namespace xmrig {
+
+
 class Client;
 class IStrategyListener;
-class Url;
 
 
 class DonateStrategy : public IStrategy, public IStrategyListener
 {
 public:
-    DonateStrategy(int level, const char *user, xmrig::Algo algo, IStrategyListener *listener);
+    DonateStrategy(int level, const char *user, Algo algo, IStrategyListener *listener);
     ~DonateStrategy() override;
 
 public:
@@ -52,6 +55,7 @@ public:
 
     int64_t submit(const JobResult &result) override;
     void connect() override;
+    void setAlgo(const Algorithm &algo) override;
     void stop() override;
     void tick(uint64_t now) override;
 
@@ -77,5 +81,9 @@ private:
     uint64_t m_stop;
     uv_timer_t m_timer;
 };
+
+
+} /* namespace xmrig */
+
 
 #endif /* XMRIG_DONATESTRATEGY_H */

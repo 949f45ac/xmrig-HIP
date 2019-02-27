@@ -1,3 +1,45 @@
+# v2.13.0
+- **[#938](https://github.com/xmrig/xmrig/issues/938) Added support for new algorithm `cryptonight/r`, short alias `cn/r` (also known as CryptoNightR or CryptoNight variant 4), for upcoming [Monero](https://www.getmonero.org/) fork on March 9, thanks [@SChernykh](https://github.com/SChernykh).**
+- [#939](https://github.com/xmrig/xmrig/issues/939) Added support for dynamic (runtime) pools reload.
+
+# v2.12.0-beta
+- [#235](https://github.com/xmrig/xmrig-nvidia/pull/235) Added support for new algorithm `cryptonight/wow`, short alias `cn/wow` (also known as CryptonightR), for upcoming [Wownero](http://wownero.org) fork on February 14.
+
+# v2.11.0
+- [#928](https://github.com/xmrig/xmrig/issues/928) Added support for new algorithm `cryptonight/gpu`, short alias `cn/gpu` (original name `cryptonight-gpu`), for upcoming [Ryo currency](https://ryo-currency.com) fork on February 14.
+
+# v2.10.0
+- [#904](https://github.com/xmrig/xmrig/issues/904) Added new algorithm `cn-pico/trtl` (aliases `cryptonight-turtle`, `cn-trtl`) for upcoming TurtleCoin (TRTL) fork.
+
+# v2.9.4
+- [#913](https://github.com/xmrig/xmrig/issues/913) Fixed Masari (MSR) support (this update required for upcoming fork).
+
+# v2.9.3
+- [#232](https://github.com/xmrig/xmrig-nvidia/pull/232) Fixed `cn/half` compute errors.
+
+# v2.9.1
+- [#899](https://github.com/xmrig/xmrig/issues/899) Added support for new algorithm `cn/half` for Masari and Stellite forks.
+
+# v2.8.4
+- Improved `cn/2` performance especially for old GPUs.
+- Better `cn/2` autoconfig for old GPUs if variant `-1` or `2` selected.
+
+# v2.8.3
+- [#197](https://github.com/xmrig/xmrig/issues/197) Fixed wrong default value for option `sync_mode`.
+- [#813](https://github.com/xmrig/xmrig/issues/813) Fixed critical bug with Minergate pool and variant 2.
+
+# v2.8.1
+- [#167](https://github.com/xmrig/xmrig-amd/issues/167) Fixed wrong hashrate in `GET /1/threads` endpoint.
+- [#204](https://github.com/xmrig/xmrig-nvidia/issues/204) Fixed regression, periodical health reports was not shown since v2.7.0-beta.
+
+# v2.8.0
+- **[#753](https://github.com/xmrig/xmrig/issues/753) Added new algorithm [CryptoNight variant 2](https://github.com/xmrig/xmrig/issues/753) for Monero fork, thanks [@SChernykh](https://github.com/SChernykh).**
+- **[#758](https://github.com/xmrig/xmrig/issues/758) Added SSL/TLS support for secure connections to pools.**
+  - Added per pool options `"tls"` and `"tls-fingerprint"` and command line equivalents.  
+- [#245](https://github.com/xmrig/xmrig-proxy/issues/245) Fixed API ID collision when run multiple miners on same machine.
+- [#757](https://github.com/xmrig/xmrig/issues/757) Fixed send buffer overflow.
+- [#777](https://github.com/xmrig/xmrig/issues/777) Better report about pool connection issues. 
+
 # v2.7.0-beta
 - Algorithm variant `cryptonight-lite/ipbc` replaced to `cryptonight-heavy/tube` for **Bittube (TUBE)** coin.
 - Added `cryptonight-heavy/xhv` variant for **Haven Protocol (XHV)** coin.

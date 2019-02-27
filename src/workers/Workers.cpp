@@ -41,32 +41,34 @@
 #include "workers/Hashrate.h"
 #include "workers/InterleaveData.h"
 #include "workers/Workers.h"
+#include "Mem.h"
 
 #include "nvidia/cryptonight.h"
 
 bool Workers::m_active = false;
 bool Workers::m_enabled = true;
 Hashrate *Workers::m_hashrate = nullptr;
-IJobResultListener *Workers::m_listener = nullptr;
-Job Workers::m_job;
 size_t Workers::m_threadsCount = 0;
 std::atomic<int> Workers::m_paused;
 std::atomic<uint64_t> Workers::m_sequence;
-std::list<Job> Workers::m_queue;
+std::list<xmrig::Job> Workers::m_queue;
 std::vector<Handle*> Workers::m_workers;
 uint64_t Workers::m_ticks = 0;
 uv_async_t Workers::m_async;
 uv_mutex_t Workers::m_mutex;
 uv_rwlock_t Workers::m_rwlock;
+uv_timer_t Workers::m_reportTimer;
 uv_timer_t Workers::m_timer;
 xmrig::Controller *Workers::m_controller = nullptr;
+xmrig::IJobResultListener *Workers::m_listener = nullptr;
+xmrig::Job Workers::m_job;
 
 
 struct JobBaton
 {
     uv_work_t request;
-    std::vector<Job> jobs;
-    std::vector<JobResult> results;
+    std::vector<xmrig::Job> jobs;
+    std::vector<xmrig::JobResult> results;
     int errors = 0;
 
     JobBaton() {
@@ -75,10 +77,10 @@ struct JobBaton
 };
 
 
-Job Workers::job()
+xmrig::Job Workers::job()
 {
     uv_rwlock_rdlock(&m_rwlock);
-    Job job = m_job;
+    xmrig::Job job = m_job;
     uv_rwlock_rdunlock(&m_rwlock);
 
     return job;
@@ -187,7 +189,7 @@ void Workers::setEnabled(bool enabled)
 }
 
 
-void Workers::setJob(const Job &job, bool donate)
+void Workers::setJob(const xmrig::Job &job, bool donate)
 {
     uv_rwlock_wrlock(&m_rwlock);
     m_job = job;
@@ -270,8 +272,12 @@ bool Workers::start(xmrig::Controller *controller)
 		bases[device_id].w_off += thread->blocks() * thread->threads();
     }
 
-    if (controller->config()->isShouldSave()) {
-        controller->config()->save();
+    controller->save();
+
+    const uint64_t printTime = static_cast<uint64_t>(m_controller->config()->printTime());
+    if (printTime > 0) {
+        uv_timer_init(uv_default_loop(), &m_reportTimer);
+        uv_timer_start(&m_reportTimer, Workers::onReport, (printTime + 4) * 1000, printTime * 1000);
     }
 
 	uv_timer_start(&m_timer, Workers::onTick, 500, 500);
@@ -282,6 +288,10 @@ bool Workers::start(xmrig::Controller *controller)
 
 void Workers::stop()
 {
+    if (m_controller->config()->printTime() > 0) {
+        uv_timer_stop(&m_reportTimer);
+    }
+
     uv_timer_stop(&m_timer);
     m_hashrate->stop();
 
@@ -295,7 +305,7 @@ void Workers::stop()
 }
 
 
-void Workers::submit(const Job &result)
+void Workers::submit(const xmrig::Job &result)
 {
     uv_mutex_lock(&m_mutex);
     m_queue.push_back(result);
@@ -323,6 +333,16 @@ void Workers::onReady(void *arg)
 }
 
 
+void Workers::onReport(uv_timer_t *)
+{
+    m_hashrate->print();
+
+    if (NvmlApi::isAvailable()) {
+        printHealth();
+    }
+}
+
+
 void Workers::onResult(uv_async_t *)
 {
     JobBaton *baton = new JobBaton();
@@ -341,10 +361,11 @@ void Workers::onResult(uv_async_t *)
                 return;
             }
 
-            cryptonight_ctx *ctx = CryptoNight::createCtx(baton->jobs[0].algorithm().algo());
+            cryptonight_ctx *ctx;
+            MemInfo info = Mem::create(&ctx, baton->jobs[0].algorithm().algo(), 1);
 
-            for (const Job &job : baton->jobs) {
-                JobResult result(job);
+            for (const xmrig::Job &job : baton->jobs) {
+                xmrig::JobResult result(job);
 
                 if (CryptoNight::hash(job, result, ctx)) {
                     baton->results.push_back(result);
@@ -354,12 +375,12 @@ void Workers::onResult(uv_async_t *)
                 }
             }
 
-            CryptoNight::freeCtx(ctx);
+            Mem::release(&ctx, 1, info);
         },
         [](uv_work_t* req, int) {
             JobBaton *baton = static_cast<JobBaton*>(req->data);
 
-            for (const JobResult &result : baton->results) {
+            for (const xmrig::JobResult &result : baton->results) {
                 m_listener->onJobResult(result);
             }
 

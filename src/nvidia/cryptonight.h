@@ -42,8 +42,7 @@ typedef struct {
 	hipStream_t stream;
 
 	uint32_t idWorkerOnDevice = 0u;
-	int interleave = 40;
-	uint64_t lastDelay = 0;
+	uint64_t kernel_height;
 
 	uint32_t *d_input;
 	uint32_t inputlen;

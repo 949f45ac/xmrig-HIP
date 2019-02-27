@@ -4,8 +4,9 @@
  * Copyright 2014      Lucas Jones <https://github.com/lucasjones>
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
- * Copyright 2016-2017 XMRig       <support@xmrig.com>
- *
+ * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
+ * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,34 +22,34 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-#ifdef __FreeBSD__
-#   include <sys/types.h>
-#   include <sys/param.h>
-#   include <sys/cpuset.h>
-#   include <pthread_np.h>
-#endif
+#ifndef XMRIG_HANDLE_H
+#define XMRIG_HANDLE_H
 
 
-#include <pthread.h>
-#include <sched.h>
-#include <unistd.h>
-#include <string.h>
+typedef struct uv_fs_event_s uv_fs_event_t;
+typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
+typedef struct uv_handle_s uv_handle_t;
+typedef struct uv_signal_s uv_signal_t;
+typedef struct uv_tcp_s uv_tcp_t;
+typedef struct uv_timer_s uv_timer_t;
 
 
-#include "Cpu.h"
+namespace xmrig {
 
 
-#ifdef __FreeBSD__
-typedef cpuset_t cpu_set_t;
-#endif
-
-
-void Cpu::init()
+class Handle
 {
-#   ifdef XMRIG_NO_LIBCPUID
-    m_totalThreads = sysconf(_SC_NPROCESSORS_CONF);
-#   endif
+public:
+    static void close(uv_fs_event_t *handle);
+    static void close(uv_getaddrinfo_t *handle);
+    static void close(uv_handle_t *handle);
+    static void close(uv_signal_t *handle);
+    static void close(uv_tcp_t *handle);
+    static void close(uv_timer_t *handle);
+};
 
-    initCommon();
-}
+
+} /* namespace xmrig */
+
+
+#endif /* XMRIG_HANDLE_H */

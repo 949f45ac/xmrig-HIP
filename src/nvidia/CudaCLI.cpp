@@ -38,7 +38,7 @@ CudaCLI::CudaCLI() :
 }
 
 
-bool CudaCLI::setup(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo)
+bool CudaCLI::setup(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo, bool isCNv2)
 {
     if (isEmpty() || m_count == 0) {
         return false;
@@ -70,7 +70,7 @@ bool CudaCLI::setup(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo)
 }
 
 
-void CudaCLI::autoConf(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo)
+void CudaCLI::autoConf(std::vector<xmrig::IThread *> &threads, xmrig::Algo algo, bool isCNv2)
 {
     if (m_count == 0) {
         return;

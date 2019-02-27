@@ -50,6 +50,11 @@ CudaWorker::CudaWorker(Handle *handle) :
 {
     const CudaThread *thread = static_cast<CudaThread *>(handle->config());
 
+    // m_ctx.module = nullptr;
+    // m_ctx.kernel = nullptr;
+    // m_ctx.kernel_variant = xmrig::VARIANT_AUTO;
+    m_ctx.kernel_height = 0;
+
     m_ctx.device_id      = static_cast<int>(thread->index());
     m_ctx.device_blocks  = thread->blocks();
     m_ctx.device_threads = thread->threads();
@@ -163,10 +168,12 @@ void CudaWorker::start()
         consumeJob();
     }
 	g.unlock();
+
+    // cryptonight_extra_cpu_free(&m_ctx, m_algorithm);
 }
 
 
-bool CudaWorker::resume(const Job &job)
+bool CudaWorker::resume(const xmrig::Job &job)
 {
     if (m_job.poolId() == -1 && job.poolId() >= 0 && job.id() == m_pausedJob.id()) {
         m_job   = m_pausedJob;
@@ -180,9 +187,9 @@ bool CudaWorker::resume(const Job &job)
 
 void CudaWorker::consumeJob()
 {
-    Job job = Workers::job();
+    xmrig::Job job = Workers::job();
     m_sequence = Workers::sequence();
-    if (m_job == job) {
+    if (m_job.id() == job.id() && m_job.clientId() == job.clientId()) {
         return;
     }
 
@@ -207,7 +214,7 @@ void CudaWorker::consumeJob()
 }
 
 
-void CudaWorker::save(const Job &job)
+void CudaWorker::save(const xmrig::Job &job)
 {
     if (job.poolId() == -1 && m_job.poolId() >= 0) {
         m_pausedJob   = m_job;

@@ -101,7 +101,11 @@ CudaThread::CudaThread(const rapidjson::Value &object) :
     setBlocks(object["blocks"].GetInt());
     setBFactor(object["bfactor"].GetInt());
     setBSleep(object["bsleep"].GetInt());
-    setSyncMode(object["sync_mode"].GetUint());
+
+    const rapidjson::Value &syncMode = object["sync_mode"];
+    if (syncMode.IsUint()) {
+        setSyncMode(syncMode.GetUint());
+    }
 
     const rapidjson::Value &affinity = object["affine_to_cpu"];
     if (affinity.IsInt()) {
@@ -164,6 +168,13 @@ void CudaThread::limit(int maxUsage, int maxThreads)
         m_threads = static_cast<int>(m_threads / 100.0 * maxUsage);
     }
 }
+
+
+#ifdef APP_DEBUG
+void CudaThread::print() const
+{
+}
+#endif
 
 
 #ifndef XMRIG_NO_API

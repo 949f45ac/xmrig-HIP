@@ -40,7 +40,8 @@ namespace xmrig {
 
 class ConfigLoader;
 class IThread;
-class IWatcherListener;
+class IConfigListener;
+class Process;
 
 
 class Config : public CommonConfig
@@ -48,15 +49,15 @@ class Config : public CommonConfig
 public:
     Config();
 
+    bool isCNv2() const;
     bool reload(const char *json);
-
     void getJSON(rapidjson::Document &doc) const override;
 
     inline bool isShouldSave() const                     { return m_shouldSave; }
     inline const std::vector<IThread *> &threads() const { return m_threads; }
     inline int maxGpuThreads() const                     { return m_maxGpuThreads; }
 
-    static Config *load(int argc, char **argv, IWatcherListener *listener);
+    static Config *load(Process *process, IConfigListener *listener);
 
 protected:
     bool finalize() override;
