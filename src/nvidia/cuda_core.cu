@@ -201,7 +201,7 @@ __global__ void cryptonight_core_gpu_phase3( int threads, const uint64_t * __res
 	const int jump = (1 << (concrete_shift+CHU_SHIFT));
 	const int end = (xmrig::cn_select_memory<ALGO>() >> 4) << concrete_shift;
 
-	#pragma unroll 4
+	// #pragma unroll 4
 	for ( int i = subRaw; i < end; i += jump )
 	{
 		int j = i;
@@ -386,21 +386,35 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
             dophase<CRYPTONIGHT, VARIANT_2, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
-        case VARIANT_1:
-            dophase<CRYPTONIGHT, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
-            break;
-
         case VARIANT_HALF:
             dophase<CRYPTONIGHT, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
-        case VARIANT_XTL:
-            dophase<CRYPTONIGHT, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+		// case VARIANT_DOUBLE:
+        //     dophase<CRYPTONIGHT, VARIANT_DOUBLE, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+        //     break;
+
+		// case VARIANT_ZLS:
+        //     dophase<CRYPTONIGHT, VARIANT_ZLS, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+        //     break;
+
+		case VARIANT_RWZ:
+            dophase<CRYPTONIGHT, VARIANT_RWZ, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
-        case VARIANT_MSR:
-            dophase<CRYPTONIGHT, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
-            break;
+			// Not really used by any currency anymore.
+        // case VARIANT_1:
+        //     dophase<CRYPTONIGHT, VARIANT_1, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+        //     break;
+
+			// Have been abandoned by their currencies, so let's stop compiling them.
+        // case VARIANT_XTL:
+        //     dophase<CRYPTONIGHT, VARIANT_XTL, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+        //     break;
+
+        // case VARIANT_MSR:
+        //     dophase<CRYPTONIGHT, VARIANT_MSR, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
+        //     break;
 
         default:
             printf("Only CN1, CN2, XTL, MSR supported for cn normal, but you requested: %d\n.", variant);
