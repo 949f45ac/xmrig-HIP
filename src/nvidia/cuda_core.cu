@@ -390,6 +390,7 @@ void cryptonight_gpu_phase_shifted(uint phase, nvid_ctx *ctx, xmrig::Algo algo, 
             dophase<CRYPTONIGHT, VARIANT_HALF, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
             break;
 
+			// Not available on moneroocean, so idc rn.
 		// case VARIANT_DOUBLE:
         //     dophase<CRYPTONIGHT, VARIANT_DOUBLE, MIXED_SHIFT, SEC_SHIFT>(phase, ctx, startNonce);
         //     break;

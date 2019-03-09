@@ -517,6 +517,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	foo.x += sqrt_result;
 
 	const uint32_t end = ( xmrig::cn_select_iter<ALGO, VARIANT>() );
+	constexpr const bool reverse = VARIANT == xmrig::VARIANT_RWZ;
 
 	__syncthreads();
 	#pragma unroll 2
@@ -525,9 +526,15 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint32_t j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
 		ulonglong2 chunk1, chunk2, chunk3;
 		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
-		LOAD_CHUNK(chunk1, j0, 1);
-		LOAD_CHUNK(chunk2, j0, 2);
-		LOAD_CHUNK(chunk3, j0, 3);
+		if (reverse) {
+			LOAD_CHUNK(chunk1, j0, 3);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 1);
+		} else {
+			LOAD_CHUNK(chunk1, j0, 1);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 3);
+		}
 
 		if (SEC_SHIFT < 8) { PRIO(2); }
 
@@ -571,7 +578,11 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		reinterpret_cast<uint4*>(long_state)[j1^1] = dl;
 #else
-		STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
+		if (reverse) {
+			STORE_CHUNK(j1, v_add(chunk3, d), 2);
+		} else {
+			STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
+		}
 		FENCE32(sqrt_result);
 #endif
 
@@ -588,7 +599,11 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		chunk1 = v_xor(chunk1, result_mul);
 		result_mul = v_xor(result_mul, chunk2);
 
-		STORE_CHUNK(j1, v_add(chunk1, d), 2);
+		if (reverse) {
+			STORE_CHUNK(j1, v_add(chunk1, d_old), 1);
+		} else {
+			STORE_CHUNK(j1, v_add(chunk1, d), 2);
+		}
 		STORE_CHUNK(j1, v_add(chunk2, a), 3);
 
 		a = v_add(a, result_mul);
