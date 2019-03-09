@@ -15,7 +15,7 @@
     "cuda-max-threads": 64,
     "donate-level": 5,
     "log-file": null,
-	"threads": [
+    "threads": [
         {    // Vega 56 / 64
             "index": 0,
             "threads": 16,
@@ -23,8 +23,8 @@
             "bfactor": 0,
             "bsleep": 0,
             "sync_mode": 3
-        },
-	],
+        }
+    ],
     "pools": [
         {
             "url": "donate.v2.xmrig.com:3333",
@@ -34,6 +34,7 @@
             "nicehash": false,
             "keepalive": true,
             "variant": -1,
+            "enabled": true,
             "tls": false,
             "tls-fingerprint": null
         }
