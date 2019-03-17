@@ -332,7 +332,7 @@ extern "C" int cryptonight_extra_cpu_init(nvid_ctx* ctx, xmrig::Algo algo)
 	}
 
 #ifdef __HCC__
-	hipSetDeviceFlags(hipDeviceScheduleBlockingSync);
+	hipSetDeviceFlags(hipDeviceScheduleYield);
 	hipDeviceSetCacheConfig(hipFuncCachePreferL1);
 #else
 	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
