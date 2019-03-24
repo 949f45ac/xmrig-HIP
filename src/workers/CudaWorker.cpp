@@ -136,20 +136,7 @@ void CudaWorker::start()
             cryptonight_extra_cpu_prepare(&m_ctx, m_nonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);
             cryptonight_gpu_phase(1, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
 
-			hipEventRecord(interleave->progress, m_ctx.stream);
-			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
-			g.unlock();
-
 			cryptonight_gpu_phase(2, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
-
-			std::this_thread::yield();
-			hipEventSynchronize(interleave->progress);
-			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
-
-			g = std::unique_lock<std::mutex>(interleave->mutex);
-
-			hipStreamWaitEvent(m_ctx.stream, interleave->progress, 0);
-			exit_if_cudaerror( m_ctx.device_id, __FILE__, __LINE__ );
 
 			cryptonight_gpu_phase(3, &m_ctx, m_algorithm, m_job.algorithm().variant(), m_nonce);
             cryptonight_extra_cpu_final(&m_ctx, m_nonce, m_job.target(), &foundCount, foundNonce, m_algorithm == xmrig::CRYPTONIGHT_HEAVY);

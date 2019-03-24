@@ -447,8 +447,6 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	hipMemcpyAsync( resnonce, ctx->d_result_nonce, 10 * sizeof (uint32_t ), hipMemcpyDeviceToHost, ctx->stream );
 	exit_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
 
-	hipStreamSynchronize(ctx->stream);
-
 #if DEBUG
 	printf ("Run for startnonce %d with target %016lX over.\n", startNonce, target);
 #endif
