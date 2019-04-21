@@ -520,7 +520,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	constexpr const bool reverse = VARIANT == xmrig::VARIANT_RWZ;
 
 	__syncthreads();
-	#pragma unroll 2
+	// #pragma unroll 2
 	for ( int i = 0; i < end; ++i )
 	{
 		uint32_t j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
@@ -539,23 +539,80 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		if (SEC_SHIFT < 8) { PRIO(2); }
 
 		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
-		uint4 c = cn_aes_single_round(sharedMemory, x32, a4);
+		uint4 c = make_uint4(0, 0, 0, 0);
 
-		uint32_t j1 = SCRATCH_INDEX((c.x & mask ) >> 4);
+		c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
 
-		STORE_CHUNK(j0, v_add(chunk3, d_old), 1);
-		STORE_CHUNK(j0, v_add(chunk1, d), 2);
-		STORE_CHUNK(j0, v_add(chunk2, a), 3);
-		{
-			ulonglong2 d_xored = v_xor(d, *reinterpret_cast<ulonglong2*>(&c));
-			long_state[j0] = d_xored;
-		}
-
-		// ==== LOAD 2 : chunks ====
-		LOAD_CHUNK(chunk3, j1, 3);
+		uint32_t j1 = SCRATCH_INDEX(( c.x & mask ) >> 4);
 		ulonglong2 y2 = long_state[j1];
-		LOAD_CHUNK(chunk1, j1, 1);
-		LOAD_CHUNK(chunk2, j1, 2);
+
+		ulonglong2 chunk1_l, chunk2_l, chunk3_l;
+		LOAD_CHUNK(chunk3_l, j1, 3);
+		LOAD_CHUNK(chunk1_l, j1, 1);
+		LOAD_CHUNK(chunk2_l, j1, 2);
+		FENCE32(c.x);
+
+		c.y = (a.x >> 32) ^ (t_fn0(x32.y & 0xff) ^ t_fn1((x32.z >> 8) & 0xff) ^ t_fn2((x32.w >> 16) & 0xff) ^ t_fn3((x32.x >> 24)));
+		c.z = ((uint32_t) a.y) ^ (t_fn0(x32.z & 0xff) ^ t_fn1((x32.w >> 8) & 0xff) ^ t_fn2((x32.x >> 16) & 0xff) ^ t_fn3((x32.y >> 24)));
+		c.w = (a.y >> 32) ^ (t_fn0(x32.w & 0xff) ^ t_fn1((x32.x >> 8) & 0xff) ^ t_fn2((x32.y >> 16) & 0xff) ^ t_fn3((x32.z >> 24)));
+
+
+		ulonglong2 chunk1_stored = v_add(chunk3, d_old);
+		ulonglong2 chunk2_stored = v_add(chunk1, d);
+		ulonglong2 chunk3_stored = v_add(chunk2, a);
+
+		STORE_CHUNK(j0, chunk1_stored, 1);
+		STORE_CHUNK(j0, chunk2_stored, 2);
+		STORE_CHUNK(j0, chunk3_stored, 3);
+
+		ulonglong2 d_xored = v_xor(d, *reinterpret_cast<ulonglong2*>(&c));
+		long_state[j0] = d_xored;
+
+
+		bool different_base = (j0 >> 2) != (j1 >> 2);
+
+		if (different_base) {
+			// y2 = y2_loaded;
+			// chunk1 = chunk1_l;
+			// chunk2 = chunk2_l;
+			// chunk3 = chunk3_l;
+		} else {
+			int pattern = (j0 & 3) ^ (j1 & 3);
+
+			switch (pattern) {
+			case 1: // Pairwise swap
+				y2 = chunk1_stored;
+				chunk1_l = d_xored;
+
+				chunk2_l = chunk3_stored;
+				chunk3_l= chunk2_stored;
+				break;
+
+			case 2: // Reverse + swap
+				y2 = chunk2_stored;
+				chunk1_l = chunk3_stored;
+
+				chunk2_l = d_xored;
+				chunk3_l = chunk1_stored;
+				break;
+
+			case 3: // Reverse
+				y2 = chunk3_stored;
+				chunk1_l = chunk2_stored;
+
+				chunk2_l = chunk1_stored;
+				chunk3_l = d_xored;
+				break;
+
+			case 0:
+			default: // Id
+				y2 = d_xored;
+				chunk1_l = chunk1_stored;
+
+				chunk2_l = chunk2_stored;
+				chunk3_l = chunk3_stored;
+			}
+		}
 
 		FENCE32(c.x);
 		uint64_t t1_64 = c.x | (((uint64_t) c.y) << 32);
@@ -579,9 +636,9 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		reinterpret_cast<uint4*>(long_state)[j1^1] = dl;
 #else
 		if (reverse) {
-			STORE_CHUNK(j1, v_add(chunk3, d), 2);
+			STORE_CHUNK(j1, v_add(chunk3_l, d), 2);
 		} else {
-			STORE_CHUNK(j1, v_add(chunk3, d_old), 1);
+			STORE_CHUNK(j1, v_add(chunk3_l, d_old), 1);
 		}
 		FENCE32(sqrt_result);
 #endif
@@ -596,15 +653,15 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		ulonglong2 result_mul = make_ulonglong2(hi, lo);
 
-		chunk1 = v_xor(chunk1, result_mul);
-		result_mul = v_xor(result_mul, chunk2);
+		chunk1_l = v_xor(chunk1_l, result_mul);
+		result_mul = v_xor(result_mul, chunk2_l);
 
 		if (reverse) {
-			STORE_CHUNK(j1, v_add(chunk1, d_old), 1);
+			STORE_CHUNK(j1, v_add(chunk1_l, d_old), 1);
 		} else {
-			STORE_CHUNK(j1, v_add(chunk1, d), 2);
+			STORE_CHUNK(j1, v_add(chunk1_l, d), 2);
 		}
-		STORE_CHUNK(j1, v_add(chunk2, a), 3);
+		STORE_CHUNK(j1, v_add(chunk2_l, a), 3);
 
 		a = v_add(a, result_mul);
 

@@ -1,32 +1,26 @@
-**You must use amdgpu-pro dkms driver for good performance.**
-
-**Crank up your sclk (core clock) for good hashrates on Vega. Power consumption stays reasonable.**
-
 # XMRig HIP
 
 A Linux CryptoNight GPU miner built on the HIP framework.
 
-Features:
-- Vega 64: 2000 H/s and up on CN/2. 2100+ on CN/1 variants
-- Vega 56: 1820+ H/s on CN/2 at least. 2000+ H/s on CN/1 variants.
-- Large Polaris cards (_70, _80) mine very fast, up to 10% faster than on OpenCL.
-- Small Polaris cards (_50, _60) are also quite fast, losing no speed on CN/2 compared to CN/1.
+Features
+- Unique optimizations
+- Good cn-pico hashrates
+- Good Polaris hashrates
 - Automatic algo switching (for mining on MoneroOcean)
 
 Caveat emptor
+- No cn/r, nonrandom cn variants only.
 - Polaris cards need to run in a true PCIe 3.0 x8 or x16 slot – no
   risers!
-- Dual thread setups on anything but Vega 64 are quite unstable
-  as of yet. Donate job or algo switching will screw Vega 56 hashrates
-  until miner is restarted.
 - Nvidia cards are theoretically supported, but that needs more
   testing
 
 ## Setup for High Vega Hashrate on Linux
 
-*Currently the miner is fast ONLY when run with amdgpu-pro dkms driver!*
+*Currently the miner is fast ONLY when run with amdgpu-pro 18.40 dkms
+driver and ROCm 2.0!*
 
-Hence you’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
+You’re best served using a 16.04 or 18.04 Ubuntu with stock kernel.
 
 - Install Ubuntu 18.04 or 16.04
 - Install ROCm without dkms:
@@ -37,9 +31,21 @@ sudo apt dist-upgrade
 sudo apt install libnuma-dev
 sudo reboot
 
-# Add AMD ROCm repo
+# Add AMD ROCm key
 wget -qO - http://repo.radeon.com/rocm/apt/debian/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] http://repo.radeon.com/rocm/apt/debian/ xenial main' | sudo tee /etc/apt/sources.list.d/rocm.list
+
+#### WRONG right now, latest ROCm eats CPU like crazy, don't use!!
+# echo 'deb [arch=amd64] http://repo.radeon.com/rocm/apt/debian/ xenial main' | sudo tee /etc/apt/sources.list.d/rocm.list
+####
+
+# Download ROCm 2.0 from here http://repo.radeon.com/rocm/archive/
+wget http://repo.radeon.com/rocm/archive/apt_2.0.0.tar.bz2
+
+# Unpack the archive for example into your home folder
+aunpack apt_2.0.0.tar.bz2
+
+# Add local repo to apt sources
+echo "deb [arch=amd64] file:///home/$LOGNAME/packages/apt_2.0.0.89/ xenial main" | sudo tee /etc/apt/sources.list.d/rocm.list
 
 # Install HIP
 sudo apt update
@@ -88,6 +94,7 @@ Use the following threads/blocks depending on card.
 - Polaris 4GB: threads=8, blocks=124 + threads=8, blocks=124
 - Polaris _50 or _60: Threads = 64, Blocks: Number of Compute Units.
 
+**On cn-pico use 256 threads!**
 
 Example config:
 
@@ -145,6 +152,8 @@ Example config:
 - It can still pay off to use more memory, so that the overall work item count is not divisible by 256. The remainder then is best divided into groups of 32.
 
 - Using a non-hardcoded (variable) striding group size comes with a performance hit – since we run two threads, we only have to do it on one. E.g. 2048 work items on first thread, 1920 on second thread means the first can run with hardcoded 256.
+
+- Issue first round of loads before first round of stores. Somehow this makes cn-pico work very well with 128-256 threads.
 
 ## If you want to donate to me (949f45ac) who did HIP port + optimization
 * XMR: `45FbpewbfJf6wp7gkwAqtwNc7wqnpEeJdUH2QRgeLPhZ1Chhi2qs4sNQKJX4Ek2jm946zmyBYnH6SFVCdL5aMjqRHodYYsF`

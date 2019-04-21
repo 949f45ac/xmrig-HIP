@@ -169,7 +169,8 @@ void CudaWorker::start()
     }
 	g.unlock();
 
-    // cryptonight_extra_cpu_free(&m_ctx, m_algorithm);
+	LOG_INFO("Freeing GPU memory blocks.");
+    cryptonight_extra_cpu_free(&m_ctx, m_algorithm);
 }
 
 

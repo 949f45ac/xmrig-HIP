@@ -460,6 +460,33 @@ extern "C" void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, 
 	}
 }
 
+void cryptonight_extra_cpu_free(nvid_ctx *ctx, xmrig::Algo algo)
+{
+	if (ctx->idWorkerOnDevice == 0) {
+		hipFree(ctx->d_ctx_key1);
+		hipFree(ctx->d_ctx_key2);
+		print_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
+		hipFree(ctx->d_ctx_text);
+		hipFree(ctx->d_ctx_a);
+		hipFree(ctx->d_ctx_b);
+		print_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
+
+		hipFree(ctx->d_long_state);
+		hipFree(ctx->d_ctx_state);
+
+		if (algo == xmrig::CRYPTONIGHT_HEAVY) {
+			hipFree(ctx->d_ctx_state_p1);
+		}
+
+		print_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
+	}
+
+	hipFree(ctx->d_input);
+	hipFree(ctx->d_result_count);
+	hipFree(ctx->d_result_nonce);
+	print_if_cudaerror(ctx->device_id, __FILE__, __LINE__ );
+}
+
 extern "C" int cuda_get_devicecount()
 {
 	hipError_t err;

@@ -75,6 +75,7 @@ void cryptonight_extra_cpu_prepare(nvid_ctx* ctx, uint32_t startNonce, bool heav
 //void cryptonight_core_cpu_hash(nvid_ctx* ctx, uint32_t startNonce);
 void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo algo, xmrig::Variant variant, uint32_t startNonce);
 void cryptonight_extra_cpu_final(nvid_ctx* ctx, uint32_t startNonce, uint64_t target, uint32_t* rescount, uint32_t *resnonce, bool heavy);
+void cryptonight_extra_cpu_free(nvid_ctx* ctx, xmrig::Algo algo);
 }
 
 #ifdef TEMP_PLATFORM
