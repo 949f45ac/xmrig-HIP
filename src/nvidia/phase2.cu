@@ -484,30 +484,28 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 	const uint32_t end = ( xmrig::cn_select_iter<ALGO, VARIANT>() );
 	constexpr const bool reverse = VARIANT == xmrig::VARIANT_RWZ;
 
+	uint32_t j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
+	ulonglong2 chunk1, chunk2, chunk3;
+
+	uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
+
+	if (reverse) {
+		LOAD_CHUNK(chunk1, j0, 3);
+		LOAD_CHUNK(chunk2, j0, 2);
+		LOAD_CHUNK(chunk3, j0, 1);
+	} else {
+		LOAD_CHUNK(chunk1, j0, 1);
+		LOAD_CHUNK(chunk2, j0, 2);
+		LOAD_CHUNK(chunk3, j0, 3);
+	}
+
 	__syncthreads();
 	// #pragma unroll 2
 	for ( int i = 0; i < end; ++i )
 	{
-		uint32_t j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
-		ulonglong2 chunk1, chunk2, chunk3;
-		uint4 x32 = reinterpret_cast<uint4*>(long_state)[j0];
-		if (reverse) {
-			LOAD_CHUNK(chunk1, j0, 3);
-			LOAD_CHUNK(chunk2, j0, 2);
-			LOAD_CHUNK(chunk3, j0, 1);
-		} else {
-			LOAD_CHUNK(chunk1, j0, 1);
-			LOAD_CHUNK(chunk2, j0, 2);
-			LOAD_CHUNK(chunk3, j0, 3);
-		}
-
-		if (SEC_SHIFT < 8) { PRIO(2); }
-
-		uint4 a4 = make_uint4(a.x, a.x >> 32, a.y, a.y >> 32);
 		uint4 c = make_uint4(0, 0, 0, 0);
 
 		c.x = ((uint32_t) a.x) ^ (t_fn0(x32.x & 0xff) ^ t_fn1((x32.y >> 8) & 0xff) ^ t_fn2((x32.z >> 16) & 0xff) ^ t_fn3((x32.w >> 24)));
-
 		uint32_t j1 = SCRATCH_INDEX(( c.x & mask ) >> 4);
 		ulonglong2 y2 = long_state[j1];
 
@@ -533,40 +531,41 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		ulonglong2 d_xored = v_xor(d, *reinterpret_cast<ulonglong2*>(&c));
 		long_state[j0] = d_xored;
 
-
 		uint pattern = j0 ^ j1;
+		if (pattern < 4) {
+			switch (pattern) {
+			case 1: // Pairwise swap
+				y2 = chunk1_stored;
+				chunk1_l = d_xored;
 
-		switch (pattern) {
-		case 1: // Pairwise swap
-			y2 = chunk1_stored;
-			chunk1_l = d_xored;
+				chunk2_l = chunk3_stored;
+				chunk3_l= chunk2_stored;
+				break;
 
-			chunk2_l = chunk3_stored;
-			chunk3_l= chunk2_stored;
-			break;
+			case 2: // Reverse + swap
+				y2 = chunk2_stored;
+				chunk1_l = chunk3_stored;
 
-		case 2: // Reverse + swap
-			y2 = chunk2_stored;
-			chunk1_l = chunk3_stored;
+				chunk2_l = d_xored;
+				chunk3_l = chunk1_stored;
+				break;
 
-			chunk2_l = d_xored;
-			chunk3_l = chunk1_stored;
-			break;
+			case 3: // Reverse
+				y2 = chunk3_stored;
+				chunk1_l = chunk2_stored;
 
-		case 3: // Reverse
-			y2 = chunk3_stored;
-			chunk1_l = chunk2_stored;
+				chunk2_l = chunk1_stored;
+				chunk3_l = d_xored;
+				break;
 
-			chunk2_l = chunk1_stored;
-			chunk3_l = d_xored;
-			break;
+			case 0: // Id
+			default:
+				y2 = d_xored;
+				chunk1_l = chunk1_stored;
 
-		case 0:
-			y2 = d_xored;
-			chunk1_l = chunk1_stored;
-
-			chunk2_l = chunk2_stored;
-			chunk3_l = chunk3_stored;
+				chunk2_l = chunk2_stored;
+				chunk3_l = chunk3_stored;
+			}
 		}
 
 		FENCE32(c.x);
@@ -576,7 +575,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 		FENCE32(n_sqrt_result);
-
 
 #if 0 // if ONLY_VEGA -- Only faster with unroll=4 and we cannot #if the unroll
 		uint4 dl = make_uint4(d_old.x, d_old.x >> 32, d_old.y, d_old.y >> 32);
@@ -591,12 +589,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		reinterpret_cast<uint4*>(long_state)[j1^1] = dl;
 #else
-		if (reverse) {
-			STORE_CHUNK(j1, v_add(chunk3_l, d), 2);
-		} else {
-			STORE_CHUNK(j1, v_add(chunk3_l, d_old), 1);
-		}
-		FENCE32(sqrt_result);
+
 #endif
 
 		y2.x ^= division_result ^ (((uint64_t) sqrt_result) << 32);
@@ -608,26 +601,96 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t lo = t1_64 * y2.x;
 
 		ulonglong2 result_mul = make_ulonglong2(hi, lo);
+		ulonglong2 rm_init = result_mul;
 
-		chunk1_l = v_xor(chunk1_l, result_mul);
 		result_mul = v_xor(result_mul, chunk2_l);
 
+
+/////
+		ulonglong2 a_later = a;
+		ulonglong2 a_stor = v_add(a, result_mul);
+		a = v_xor(a_stor, y2);
+
+		j0 = SCRATCH_INDEX(( a.x & mask ) >> 4);
+		x32 = reinterpret_cast<uint4*>(long_state)[j0];
 		if (reverse) {
-			STORE_CHUNK(j1, v_add(chunk1_l, d_old), 1);
+			LOAD_CHUNK(chunk1, j0, 3);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 1);
 		} else {
-			STORE_CHUNK(j1, v_add(chunk1_l, d), 2);
+			LOAD_CHUNK(chunk1, j0, 1);
+			LOAD_CHUNK(chunk2, j0, 2);
+			LOAD_CHUNK(chunk3, j0, 3);
 		}
-		STORE_CHUNK(j1, v_add(chunk2_l, a), 3);
+//////
 
-		a = v_add(a, result_mul);
+		if (reverse) {
+		} else {
 
-		long_state[j1] = a;
-		PRIO(0);
+		}
+		chunk1_l = v_xor(chunk1_l, rm_init);
 
-		a = v_xor(a, y2);
+		if (reverse) {
+			chunk1_stored = v_add(chunk1_l, d_old);
+			STORE_CHUNK(j1, chunk1_stored, 1);
+			chunk2_stored = v_add(chunk3_l, d);
+			STORE_CHUNK(j1, chunk2_stored, 2);
+		} else {
+			chunk1_stored = v_add(chunk3_l, d_old);
+			STORE_CHUNK(j1, chunk1_stored, 1);
+			chunk2_stored = v_add(chunk1_l, d);
+			STORE_CHUNK(j1, chunk2_stored, 2);
+		}
+
+		chunk3_stored = v_add(chunk2_l, a_later);
+		STORE_CHUNK(j1, chunk3_stored, 3);
+
+		long_state[j1] = a_stor;
+		// PRIO(0); ////// normal spot below~
+
 
 		d_old = d;
 		d = *reinterpret_cast<ulonglong2*>(&c);
+
+
+		if (SEC_SHIFT < 8) { PRIO(2); }
+
+		pattern = j0 ^ j1;
+		if (pattern < 4) {
+			switch (pattern) {
+			case 1: // Pairwise swap
+				x32 = *reinterpret_cast<uint4*>(&chunk1_stored);
+				chunk1 = a_stor;
+
+				chunk2 = chunk3_stored;
+				chunk3= chunk2_stored;
+				break;
+
+			case 2: // Reverse + swap
+				x32 = *reinterpret_cast<uint4*>(&chunk2_stored);
+				chunk1 = chunk3_stored;
+
+				chunk2 = a_stor;
+				chunk3 = chunk1_stored;
+				break;
+
+			case 3: // Reverse
+				x32 = *reinterpret_cast<uint4*>(&chunk3_stored);
+				chunk1 = chunk2_stored;
+
+				chunk2 = chunk1_stored;
+				chunk3 = a_stor;
+				break;
+
+			case 0: // Id
+			default:
+				x32 = *reinterpret_cast<uint4*>(&a_stor);
+				chunk1 = chunk1_stored;
+
+				chunk2 = chunk2_stored;
+				chunk3 = chunk3_stored;
+			}
+		}
 	}
 
 	foo -=  d_old;
