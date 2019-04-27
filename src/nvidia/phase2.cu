@@ -534,49 +534,39 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		long_state[j0] = d_xored;
 
 
-		bool different_base = (j0 >> 2) != (j1 >> 2);
+		uint pattern = j0 ^ j1;
 
-		if (different_base) {
-			// y2 = y2_loaded;
-			// chunk1 = chunk1_l;
-			// chunk2 = chunk2_l;
-			// chunk3 = chunk3_l;
-		} else {
-			int pattern = (j0 & 3) ^ (j1 & 3);
+		switch (pattern) {
+		case 1: // Pairwise swap
+			y2 = chunk1_stored;
+			chunk1_l = d_xored;
 
-			switch (pattern) {
-			case 1: // Pairwise swap
-				y2 = chunk1_stored;
-				chunk1_l = d_xored;
+			chunk2_l = chunk3_stored;
+			chunk3_l= chunk2_stored;
+			break;
 
-				chunk2_l = chunk3_stored;
-				chunk3_l= chunk2_stored;
-				break;
+		case 2: // Reverse + swap
+			y2 = chunk2_stored;
+			chunk1_l = chunk3_stored;
 
-			case 2: // Reverse + swap
-				y2 = chunk2_stored;
-				chunk1_l = chunk3_stored;
+			chunk2_l = d_xored;
+			chunk3_l = chunk1_stored;
+			break;
 
-				chunk2_l = d_xored;
-				chunk3_l = chunk1_stored;
-				break;
+		case 3: // Reverse
+			y2 = chunk3_stored;
+			chunk1_l = chunk2_stored;
 
-			case 3: // Reverse
-				y2 = chunk3_stored;
-				chunk1_l = chunk2_stored;
+			chunk2_l = chunk1_stored;
+			chunk3_l = d_xored;
+			break;
 
-				chunk2_l = chunk1_stored;
-				chunk3_l = d_xored;
-				break;
+		case 0:
+			y2 = d_xored;
+			chunk1_l = chunk1_stored;
 
-			case 0:
-			default: // Id
-				y2 = d_xored;
-				chunk1_l = chunk1_stored;
-
-				chunk2_l = chunk2_stored;
-				chunk3_l = chunk3_stored;
-			}
+			chunk2_l = chunk2_stored;
+			chunk3_l = chunk3_stored;
 		}
 
 		FENCE32(c.x);
@@ -586,6 +576,7 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		uint64_t n_division_result = fast_div_v2(reinterpret_cast<ulonglong2*>(&c)->y, din);
 		uint32_t n_sqrt_result = fast_sqrt_v2(t1_64 + n_division_result);
 		FENCE32(n_sqrt_result);
+
 
 #if 0 // if ONLY_VEGA -- Only faster with unroll=4 and we cannot #if the unroll
 		uint4 dl = make_uint4(d_old.x, d_old.x >> 32, d_old.y, d_old.y >> 32);
