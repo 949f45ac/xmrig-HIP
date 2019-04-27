@@ -471,7 +471,7 @@ extern "C" void cryptonight_gpu_phase(uint phase, nvid_ctx *ctx, xmrig::Algo alg
 			}
 		} else {
 			if (heavy) {
-				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
+				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT-1>(phase, ctx, algo, variant, startNonce);
 			} else {
 				cryptonight_gpu_phase_shifted<false, VEGA_SHIFT>(phase, ctx, algo, variant, startNonce);
 			}

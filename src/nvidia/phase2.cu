@@ -299,7 +299,6 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 	j0 = SCRATCH_INDEX(( a.x & 0x3FFFF0 ) >> 4);
 
-
 	__syncthreads();
 	#pragma unroll 2
 	for ( i = start; i < end; ++i )
