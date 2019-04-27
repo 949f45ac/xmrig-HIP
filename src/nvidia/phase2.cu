@@ -299,15 +299,15 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 
 	j0 = SCRATCH_INDEX(( a.x & 0x3FFFF0 ) >> 4);
 
-	ulonglong2 x64 = long_state[j0];
 
 	__syncthreads();
-	#pragma unroll 4
+	#pragma unroll 2
 	for ( i = start; i < end; ++i )
 	{
 		#pragma unroll 2
 		for ( int x = 0; x < 2; ++x )
 		{
+			ulonglong2 x64 = long_state[j0];
 			uint4 x32 = make_uint4(x64.x, x64.x >> 32, x64.y, x64.y >> 32);
 			if (VARIANT == xmrig::VARIANT_TUBE) { x32 = ~x32; }
 			uint4 c = make_uint4(0, 0, 0, 0);
@@ -414,8 +414,6 @@ __global__ void cryptonight_core_gpu_phase2_heavy( int threads, uint64_t * __res
 			int64_t nxq = n^q;
 
 			*adr = nxq;
-
-			x64 = long_state[j0];
 		}
 	}
 }
