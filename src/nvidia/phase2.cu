@@ -443,6 +443,42 @@ v_xor(ulonglong2 a, ulonglong2 b)
 }
 
 
+#define LSWITCH_2(chunk1, chunk3)							\
+	switch (pattern) {										\
+	case 1:													\
+		x32 = *reinterpret_cast<uint4*>(&chunk1_stored);	\
+		chunk1 = a_stor;									\
+															\
+		chunk2 = chunk3_stored;								\
+		chunk3 = chunk2_stored;								\
+		break;												\
+															\
+	case 2:													\
+		x32 = *reinterpret_cast<uint4*>(&chunk2_stored);	\
+		chunk1 = chunk3_stored;								\
+															\
+		chunk2 = a_stor;									\
+		chunk3 = chunk1_stored;								\
+		break;												\
+															\
+	case 3:													\
+		x32 = *reinterpret_cast<uint4*>(&chunk3_stored);	\
+		chunk1 = chunk2_stored;								\
+															\
+		chunk2 = chunk1_stored;								\
+		chunk3 = a_stor;									\
+		break;												\
+															\
+	case 0:													\
+	default:												\
+		x32 = *reinterpret_cast<uint4*>(&a_stor);			\
+		chunk1 = chunk1_stored;								\
+															\
+		chunk2 = chunk2_stored;								\
+		chunk3 = chunk3_stored;								\
+	}														\
+
+
 template<xmrig::Algo ALGO, xmrig::Variant VARIANT, bool MIXED_SHIFT, int SEC_SHIFT>
 __launch_bounds__( 32, 3 )
 __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * __restrict__ d_long_state_64, uint32_t * __restrict__ d_ctx_a, uint32_t * __restrict__ d_ctx_b, uint32_t * __restrict__ d_ctx_state, uint32_t startNonce, uint32_t * __restrict__ d_input )
@@ -475,12 +511,6 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 	const uint32_t mask = xmrig::cn_select_mask<ALGO>();
 
-	ulonglong2 foo = make_ulonglong2(55, 77);
-	foo -= d;
-	foo -= d_old;
-	foo.x += division_result;
-	foo.x += sqrt_result;
-
 	const uint32_t end = ( xmrig::cn_select_iter<ALGO, VARIANT>() );
 	constexpr const bool reverse = VARIANT == xmrig::VARIANT_RWZ;
 
@@ -498,6 +528,12 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 		LOAD_CHUNK(chunk2, j0, 2);
 		LOAD_CHUNK(chunk3, j0, 3);
 	}
+
+	ulonglong2 foo = make_ulonglong2(55, 77);
+	foo -= d;
+	foo -= d_old;
+	foo.x += division_result;
+	foo.x += sqrt_result;
 
 	__syncthreads();
 	// #pragma unroll 2
@@ -657,38 +693,10 @@ __global__ void cryptonight_core_gpu_phase2_monero_v8( int threads, uint64_t * _
 
 		pattern = j0 ^ j1;
 		if (pattern < 4) {
-			switch (pattern) {
-			case 1: // Pairwise swap
-				x32 = *reinterpret_cast<uint4*>(&chunk1_stored);
-				chunk1 = a_stor;
-
-				chunk2 = chunk3_stored;
-				chunk3= chunk2_stored;
-				break;
-
-			case 2: // Reverse + swap
-				x32 = *reinterpret_cast<uint4*>(&chunk2_stored);
-				chunk1 = chunk3_stored;
-
-				chunk2 = a_stor;
-				chunk3 = chunk1_stored;
-				break;
-
-			case 3: // Reverse
-				x32 = *reinterpret_cast<uint4*>(&chunk3_stored);
-				chunk1 = chunk2_stored;
-
-				chunk2 = chunk1_stored;
-				chunk3 = a_stor;
-				break;
-
-			case 0: // Id
-			default:
-				x32 = *reinterpret_cast<uint4*>(&a_stor);
-				chunk1 = chunk1_stored;
-
-				chunk2 = chunk2_stored;
-				chunk3 = chunk3_stored;
+			if (reverse) {
+				LSWITCH_2(chunk3, chunk1);
+			} else {
+				LSWITCH_2(chunk1, chunk3);
 			}
 		}
 	}
